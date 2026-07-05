@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLMOps Pipeline — dynamic GPU scaling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0A0F;
+    --panel: #12121A;
+    --panel-2: #181822;
+    --border: #262636;
+    --text: #E7E7EF;
+    --text-soft: #8B8B9E;
+    --text-faint: #55556A;
+    --violet: #A78BFA;
+    --violet-soft: rgba(167,139,250,0.14);
+    --violet-line: rgba(167,139,250,0.4);
+    --green: #34D399;
+    --green-soft: rgba(52,211,153,0.12);
+    --amber: #FBBF24;
+    --amber-soft: rgba(251,191,36,0.12);
+    --red: #F87171;
+    --red-soft: rgba(248,113,113,0.12);
+    --radius: 12px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100%; background:
+    radial-gradient(900px 500px at 85% -10%, #17122a 0%, var(--bg) 55%);
+    color: var(--text); font-family:'Inter', sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width: 1140px; margin:0 auto; padding: 26px 20px 70px; }
+
+  /* ---------- header ---------- */
+  header.top{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap: 16px; flex-wrap:wrap; margin-bottom: 20px;
+  }
+  .brand{ display:flex; gap:12px; align-items:flex-start; }
+  .brand .dot{ width:10px; height:10px; border-radius:50%; margin-top:6px; background: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); animation: pulse 1.8s ease-in-out infinite; flex-shrink:0; }
+  .brand h1{ font-family:'Manrope', sans-serif; font-weight:800; font-size:21px; margin:0; letter-spacing:-0.01em; }
+  .brand .sub{ font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--text-faint); margin-top:3px; }
+  .header-right{ text-align:right; }
+  .cost-label{ font-size:11px; color: var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px; }
+  .cost-value{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:22px; color: var(--green); }
+  .controls{ display:flex; gap:8px; margin-top:10px; justify-content:flex-end; }
+  button.btn{
+    font-family:'Inter', sans-serif; font-size:12.5px; font-weight:600;
+    padding: 7px 13px; border-radius:999px; border:1px solid var(--border);
+    background: var(--panel); color: var(--text); cursor:pointer;
+    transition: border-color .15s, background .15s;
+  }
+  button.btn:hover{ border-color: var(--violet); background: var(--panel-2); }
+  button.btn:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; }
+  button.btn.primary{ background: var(--violet-soft); border-color: var(--violet-line); color: #d7c9fc; }
+
+  /* ---------- stage track ---------- */
+  .track-panel{
+    background: var(--panel); border:1px solid var(--border); border-radius: var(--radius);
+    padding: 30px 26px 22px; margin-bottom: 18px;
+  }
+  .track-meta{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:20px; flex-wrap:wrap; gap:8px; }
+  .track-meta .run-id{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color: var(--text-soft); }
+  .track-meta .run-id b{ color: var(--text); font-weight:600; }
+  .track-meta .elapsed{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color: var(--text-faint); }
+  svg.track{ width:100%; display:block; height:126px; overflow:visible; }
+  .stage-label{ font-family:'Manrope', sans-serif; font-size:12.5px; font-weight:700; fill: var(--text); }
+  .stage-sub{ font-family:'IBM Plex Mono', monospace; font-size:10px; fill: var(--text-faint); }
+
+  /* ---------- gpu fleet panel ---------- */
+  .fleet-panel{
+    background: var(--panel); border:1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 22px; margin-bottom: 18px;
+  }
+  .fleet-panel h2{ font-family:'Manrope', sans-serif; font-weight:700; font-size:14.5px; margin:0 0 4px; display:flex; align-items:center; justify-content:space-between; }
+  .fleet-panel h2 .autoscale-pill{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:500;
+    color: var(--green); background: var(--green-soft); padding:3px 9px; border-radius:999px;
+  }
+  .fleet-sub{ font-size:12px; color: var(--text-faint); margin-bottom:16px; }
+  .gpu-grid{ display:grid; grid-template-columns: repeat(12, 1fr); gap:6px; margin-bottom: 18px; }
+  .gpu-cell{
+    aspect-ratio: 1; border-radius: 6px; border:1px solid var(--border); background: var(--panel-2);
+    transition: background .3s, border-color .3s, box-shadow .3s;
+  }
+  .gpu-cell.active{ background: var(--violet-soft); border-color: var(--violet-line); box-shadow: 0 0 10px rgba(167,139,250,0.25); }
+  .gpu-cell.spinning{ animation: cellPulse 1s ease-in-out infinite; }
+  .metrics-row{ display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+  .metric{ background: var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:10px 12px; }
+  .metric .m-label{ font-size:10.5px; color: var(--text-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px; }
+  .metric .m-value{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:16px; }
+  .metric .m-value.violet{ color: var(--violet); }
+  .metric .m-value.amber{ color: var(--amber); }
+  .metric .m-value.green{ color: var(--green); }
+
+  /* ---------- grid of panels below ---------- */
+  .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } .metrics-row{ grid-template-columns: repeat(2,1fr); } .gpu-grid{ grid-template-columns: repeat(6,1fr); } }
+
+  .panel{
+    background: var(--panel); border:1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 18px 8px; display:flex; flex-direction:column; min-height: 300px;
+  }
+  .panel h2{ font-family:'Manrope', sans-serif; font-weight:700; font-size:14px; margin:0 0 12px 2px; display:flex; justify-content:space-between; }
+  .panel h2 span.count{ font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:400; color: var(--text-faint); }
+
+  .history-list{ list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; max-height: 300px; }
+  .history-list li{ display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px solid #1c1c28; font-size:13px; }
+  .history-list li:last-child{ border-bottom:none; }
+  .status-chip{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-chip.pass{ background: var(--green); box-shadow:0 0 0 3px var(--green-soft); }
+  .status-chip.fail{ background: var(--red); box-shadow:0 0 0 3px var(--red-soft); }
+  .history-run{ font-family:'IBM Plex Mono', monospace; color: var(--text-soft); font-size:12px; min-width:44px; }
+  .history-desc{ color: var(--text); flex:1; }
+  .history-desc small{ display:block; color: var(--text-faint); font-size:11px; margin-top:1px; font-family:'IBM Plex Mono', monospace; }
+  .history-time{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--text-faint); white-space:nowrap; }
+
+  .log-stream{ flex:1; overflow-y:auto; max-height:300px; font-family:'IBM Plex Mono', monospace; font-size:12px; line-height:1.65; padding:4px 4px 8px; }
+  .log-line{ white-space:pre-wrap; word-break:break-word; }
+  .log-line .t{ color: var(--text-faint); margin-right:8px; }
+  .log-line.info{ color: var(--text-soft); }
+  .log-line.ok{ color: var(--green); }
+  .log-line.scale{ color: var(--violet); }
+  .log-line.warn{ color: var(--amber); }
+  .log-line.err{ color: var(--red); }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius:8px; }
+
+  footer.note{ text-align:center; margin-top:20px; color: var(--text-faint); font-family:'IBM Plex Mono', monospace; font-size:11.5px; }
+
+  @keyframes pulse{ 0%,100%{ box-shadow: 0 0 0 4px var(--amber-soft); } 50%{ box-shadow: 0 0 0 8px transparent; } }
+  @keyframes cellPulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.45; } }
+
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="dot" id="brandDot"></span>
+      <div>
+        <h1>LLMOps Pipeline</h1>
+        <div class="sub">continuous fine-tuning loop · dynamic GPU autoscaling</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="cost-label">Simulated compute spend</div>
+      <div class="cost-value" id="costValue">$0.00</div>
+      <div class="controls">
+        <button class="btn" id="toggleBtn">Pause</button>
+        <button class="btn primary" id="runNowBtn">Run now</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="track-panel">
+    <div class="track-meta">
+      <div class="run-id">Run <b id="runIdLabel">#41</b> — <span id="runStageLabel">Ingest</span></div>
+      <div class="elapsed" id="elapsedLabel">00:00</div>
+    </div>
+    <svg class="track" id="trackSvg" viewBox="0 0 1000 126" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="fleet-panel">
+    <h2>GPU fleet <span class="autoscale-pill" id="autoscalePill">autoscaling on</span></h2>
+    <div class="fleet-sub">Nodes spin up when the training queue grows, and scale back down after a cooldown period.</div>
+    <div class="gpu-grid" id="gpuGrid"></div>
+    <div class="metrics-row">
+      <div class="metric"><div class="m-label">Active GPUs</div><div class="m-value violet" id="activeGpuVal">0 / 12</div></div>
+      <div class="metric"><div class="m-label">Queue depth</div><div class="m-value amber" id="queueVal">0 jobs</div></div>
+      <div class="metric"><div class="m-label">GPU utilization</div><div class="m-value" id="utilVal">0%</div></div>
+      <div class="metric"><div class="m-label">Rate</div><div class="m-value green" id="rateVal">$0.00/hr</div></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Run history <span class="count" id="historyCount">0 runs</span></h2>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
+    <section class="panel">
+      <h2>Live log</h2>
+      <div class="log-stream" id="logStream"></div>
+    </section>
+  </div>
+
+  <footer class="note">simulated pipeline · no real training jobs or GPUs are used</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STAGES = [
+    { key:"ingest",     label:"Ingest",     sub:"pull dataset" },
+    { key:"preprocess", label:"Preprocess", sub:"clean + tokenize" },
+    { key:"train",      label:"Train",      sub:"fine-tune" },
+    { key:"evaluate",   label:"Evaluate",   sub:"benchmark" },
+    { key:"deploy",     label:"Deploy",     sub:"serve endpoint" }
+  ];
+  var FAIL_CHANCE = { ingest:0, preprocess:0.03, train:0.04, evaluate:0.18, deploy:0.04 };
+  var TICK_MS = 150;
+  var RUN_COOLDOWN_MS = 1500;
+  var MAX_GPUS = 12;
+  var RATE_PER_GPU_HOUR = 2.50;
+  var SCALE_DOWN_COOLDOWN_TICKS = 8;
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var trackSvg = document.getElementById("trackSvg");
+  var runIdLabel = document.getElementById("runIdLabel");
+  var runStageLabel = document.getElementById("runStageLabel");
+  var elapsedLabel = document.getElementById("elapsedLabel");
+  var historyList = document.getElementById("historyList");
+  var historyCount = document.getElementById("historyCount");
+  var logStream = document.getElementById("logStream");
+  var toggleBtn = document.getElementById("toggleBtn");
+  var runNowBtn = document.getElementById("runNowBtn");
+  var costValue = document.getElementById("costValue");
+  var brandDot = document.getElementById("brandDot");
+  var gpuGrid = document.getElementById("gpuGrid");
+  var activeGpuVal = document.getElementById("activeGpuVal");
+  var queueVal = document.getElementById("queueVal");
+  var utilVal = document.getElementById("utilVal");
+  var rateVal = document.getElementById("rateVal");
+
+  var state = {
+    runId: 41,
+    running: true,
+    stageIndex: 0,
+    stageProgress: 0,
+    startedAt: Date.now(),
+    history: [],
+    failedAt: undefined,
+    queueDepth: 0,
+    activeGpus: 0,
+    scaleDownCooldown: 0,
+    totalCost: 0
+  };
+
+  // ---------- gpu grid ----------
+  function buildGpuGrid(){
+    gpuGrid.innerHTML = "";
+    for (var i=0;i<MAX_GPUS;i++){
+      var cell = document.createElement("div");
+      cell.className = "gpu-cell";
+      cell.id = "gpu-" + i;
+      gpuGrid.appendChild(cell);
+    }
+  }
+  var newlySpunUp = -1;
+  function renderGpuGrid(){
+    for (var i=0;i<MAX_GPUS;i++){
+      var cell = document.getElementById("gpu-"+i);
+      var isActive = i < state.activeGpus;
+      cell.classList.toggle("active", isActive);
+      cell.classList.toggle("spinning", isActive && i === newlySpunUp);
+    }
+    activeGpuVal.textContent = state.activeGpus + " / " + MAX_GPUS;
+    queueVal.textContent = Math.round(state.queueDepth) + " jobs";
+    var util = state.activeGpus > 0 ? Math.min(100, Math.round((state.queueDepth / (state.activeGpus*8))*100)) : 0;
+    utilVal.textContent = util + "%";
+    utilVal.className = "m-value " + (util > 80 ? "amber" : "");
+    rateVal.textContent = "$" + (state.activeGpus*RATE_PER_GPU_HOUR).toFixed(2) + "/hr";
+    costValue.textContent = "$" + state.totalCost.toFixed(2);
+  }
+
+  // ---------- stage track ----------
+  var NODE_X = [80, 300, 520, 740, 920];
+  var NODE_Y = 62; var NODE_R = 19;
+
+  function buildTrack(){
+    while (trackSvg.firstChild) trackSvg.removeChild(trackSvg.firstChild);
+    for (var i=0;i<NODE_X.length-1;i++){
+      var line = document.createElementNS(svgNS,"line");
+      line.setAttribute("x1", NODE_X[i]+NODE_R); line.setAttribute("y1", NODE_Y);
+      line.setAttribute("x2", NODE_X[i+1]-NODE_R); line.setAttribute("y2", NODE_Y);
+      line.setAttribute("stroke", "#262636"); line.setAttribute("stroke-width","3");
+      trackSvg.appendChild(line);
+
+      var fillLine = document.createElementNS(svgNS,"line");
+      fillLine.setAttribute("id","edge-fill-"+i);
+      fillLine.setAttribute("x1", NODE_X[i]+NODE_R); fillLine.setAttribute("y1", NODE_Y);
+      fillLine.setAttribute("x2", NODE_X[i]+NODE_R); fillLine.setAttribute("y2", NODE_Y);
+      fillLine.setAttribute("stroke","#34D399"); fillLine.setAttribute("stroke-width","3"); fillLine.setAttribute("stroke-linecap","round");
+      trackSvg.appendChild(fillLine);
+    }
+    STAGES.forEach(function(s,i){
+      var glow = document.createElementNS(svgNS,"circle");
+      glow.setAttribute("id","glow-"+i); glow.setAttribute("cx",NODE_X[i]); glow.setAttribute("cy",NODE_Y);
+      glow.setAttribute("r", NODE_R+7); glow.setAttribute("fill","transparent");
+      trackSvg.appendChild(glow);
+
+      var circle = document.createElementNS(svgNS,"circle");
+      circle.setAttribute("id","circle-"+i); circle.setAttribute("cx",NODE_X[i]); circle.setAttribute("cy",NODE_Y);
+      circle.setAttribute("r", NODE_R); circle.setAttribute("fill","#12121A"); circle.setAttribute("stroke","#3a3a52"); circle.setAttribute("stroke-width","2.5");
+      trackSvg.appendChild(circle);
+
+      var icon = document.createElementNS(svgNS,"text");
+      icon.setAttribute("id","icon-"+i); icon.setAttribute("x",NODE_X[i]); icon.setAttribute("y",NODE_Y+5);
+      icon.setAttribute("text-anchor","middle"); icon.setAttribute("font-size","12"); icon.setAttribute("fill","#8B8B9E");
+      icon.textContent = (i+1);
+      trackSvg.appendChild(icon);
+
+      var label = document.createElementNS(svgNS,"text");
+      label.setAttribute("x",NODE_X[i]); label.setAttribute("y",NODE_Y+40); label.setAttribute("text-anchor","middle"); label.setAttribute("class","stage-label");
+      label.textContent = s.label;
+      trackSvg.appendChild(label);
+
+      var sub = document.createElementNS(svgNS,"text");
+      sub.setAttribute("x",NODE_X[i]); sub.setAttribute("y",NODE_Y+55); sub.setAttribute("text-anchor","middle"); sub.setAttribute("class","stage-sub");
+      sub.textContent = s.sub;
+      trackSvg.appendChild(sub);
+    });
+  }
+
+  function colorForState(st){
+    if (st==="pass") return "#34D399"; if (st==="fail") return "#F87171"; if (st==="running") return "#A78BFA"; return "#3a3a52";
+  }
+  function renderTrack(){
+    var idx = state.stageIndex;
+    STAGES.forEach(function(s,i){
+      var circle = document.getElementById("circle-"+i);
+      var glow = document.getElementById("glow-"+i);
+      var icon = document.getElementById("icon-"+i);
+      var st = "idle";
+      if (i < idx) st = "pass";
+      if (i === idx) st = state.failedAt === i ? "fail" : "running";
+      if (state.failedAt !== undefined && i > state.failedAt) st = "idle";
+      var c = colorForState(st);
+      circle.setAttribute("stroke", c);
+      circle.setAttribute("fill", st==="idle" ? "#12121A" : (st==="running" ? "rgba(167,139,250,0.14)" : (st==="pass" ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)")));
+      glow.setAttribute("fill", st==="running" ? "rgba(167,139,250,0.10)" : "transparent");
+      icon.textContent = st==="pass" ? "✓" : (st==="fail" ? "✕" : (i+1));
+      icon.setAttribute("fill", c);
+    });
+    for (var i=0;i<NODE_X.length-1;i++){
+      var fillLine = document.getElementById("edge-fill-"+i);
+      var edgeDone = i < idx && (state.failedAt === undefined || i < state.failedAt);
+      var targetX = edgeDone ? NODE_X[i+1]-NODE_R : NODE_X[i]+NODE_R;
+      fillLine.setAttribute("x2", targetX);
+      fillLine.setAttribute("stroke", state.failedAt === i ? "#F87171" : "#34D399");
+    }
+  }
+
+  // ---------- logging ----------
+  function timeNow(){ var d=new Date(); return [d.getHours(),d.getMinutes(),d.getSeconds()].map(function(n){return String(n).padStart(2,"0");}).join(":"); }
+  function addLog(msg, level){
+    var line = document.createElement("div");
+    line.className = "log-line " + (level||"info");
+    var t = document.createElement("span"); t.className="t"; t.textContent = timeNow();
+    line.appendChild(t); line.appendChild(document.createTextNode(msg));
+    logStream.appendChild(line);
+    logStream.scrollTop = logStream.scrollHeight;
+    while (logStream.children.length > 200){ logStream.removeChild(logStream.firstChild); }
+  }
+
+  function addHistory(run){
+    state.history.unshift(run);
+    if (state.history.length > 40) state.history.pop();
+    renderHistory();
+  }
+  function renderHistory(){
+    historyList.innerHTML = "";
+    historyCount.textContent = state.history.length + " runs";
+    state.history.forEach(function(run){
+      var li = document.createElement("li");
+      var chip = document.createElement("span"); chip.className = "status-chip " + (run.status==="pass"?"pass":"fail");
+      li.appendChild(chip);
+      var runNum = document.createElement("span"); runNum.className="history-run"; runNum.textContent = "#"+run.id;
+      li.appendChild(runNum);
+      var desc = document.createElement("span"); desc.className="history-desc";
+      var main = document.createElement("span");
+      main.textContent = run.status==="pass" ? ("Deployed · eval " + run.evalScore + "%") : ("Failed at " + run.failedStageLabel);
+      desc.appendChild(main);
+      var small = document.createElement("small");
+      small.textContent = run.duration + "s · peak " + run.peakGpus + " GPUs · $" + run.cost.toFixed(2);
+      desc.appendChild(small);
+      li.appendChild(desc);
+      var time = document.createElement("span"); time.className="history-time"; time.textContent = run.ago;
+      li.appendChild(time);
+      historyList.appendChild(li);
+    });
+  }
+  function refreshAgo(){
+    state.history.forEach(function(run){
+      var mins = Math.floor((Date.now()-run.finishedAt)/60000);
+      run.ago = mins < 1 ? "just now" : (mins+"m ago");
+    });
+    renderHistory();
+  }
+
+  // ---------- run lifecycle ----------
+  var peakGpusThisRun = 0;
+
+  function startNewRun(){
+    state.runId += 1;
+    state.stageIndex = 0;
+    state.stageProgress = 0;
+    state.failedAt = undefined;
+    state.startedAt = Date.now();
+    peakGpusThisRun = state.activeGpus;
+    runIdLabel.textContent = "#"+state.runId;
+    addLog("— starting run #"+state.runId+" —", "info");
+    renderTrack();
+  }
+
+  function logLineFor(key){
+    var lines = {
+      ingest: ["pulling shard 00" + (1+Math.floor(Math.random()*9)), "validating schema", "dataset synced from storage"],
+      preprocess: ["tokenizing samples", "deduplicating records", "filtering low-quality examples"],
+      train: ["step " + (Math.floor(Math.random()*4000)) + "/4000", "loss " + (1.2 - Math.random()*0.9).toFixed(3), "checkpoint saved", "gradient sync across nodes"],
+      evaluate: ["running benchmark suite", "scoring held-out set", "computing eval metrics"],
+      deploy: ["rolling out canary", "warming inference cache", "routing traffic to new version"]
+    };
+    var arr = lines[key] || ["working"];
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+  function failReasonFor(key){
+    var reasons = { preprocess:"corrupt shard detected", train:"NaN loss detected, run aborted", evaluate:"eval score below deployment threshold", deploy:"canary health check failed" };
+    return reasons[key] || "unknown error";
+  }
+
+  function tick(){
+    if (!state.running) return;
+
+    // ---- queue + gpu scaling (runs every tick regardless of stage) ----
+    var stage = STAGES[state.stageIndex];
+    if (state.failedAt === undefined && stage.key === "train"){
+      state.queueDepth = Math.min(140, state.queueDepth + 3 + Math.random()*4);
+    } else {
+      state.queueDepth = Math.max(0, state.queueDepth - 4 - Math.random()*3);
+    }
+    var desiredGpus = state.queueDepth > 2 ? Math.min(MAX_GPUS, Math.max(1, Math.ceil(state.queueDepth/12))) : 0;
+
+    if (desiredGpus > state.activeGpus){
+      var before = state.activeGpus;
+      state.activeGpus = Math.min(MAX_GPUS, state.activeGpus + 2);
+      newlySpunUp = state.activeGpus - 1;
+      state.scaleDownCooldown = 0;
+      if (state.activeGpus !== before) addLog("scaled up: " + before + " → " + state.activeGpus + " GPUs (queue depth " + Math.round(state.queueDepth) + ")", "scale");
+    } else if (desiredGpus < state.activeGpus){
+      state.scaleDownCooldown++;
+      newlySpunUp = -1;
+      if (state.scaleDownCooldown > SCALE_DOWN_COOLDOWN_TICKS){
+        var beforeD = state.activeGpus;
+        state.activeGpus = Math.max(desiredGpus, state.activeGpus - 1);
+        state.scaleDownCooldown = 0;
+        if (state.activeGpus !== beforeD) addLog("scaled down: " + beforeD + " → " + state.activeGpus + " GPUs (queue depth " + Math.round(state.queueDepth) + ")", "scale");
+      }
+    } else {
+      state.scaleDownCooldown = 0;
+      newlySpunUp = -1;
+    }
+    peakGpusThisRun = Math.max(peakGpusThisRun, state.activeGpus);
+    state.totalCost += (state.activeGpus * RATE_PER_GPU_HOUR) * (TICK_MS/1000) * (6/3600); // 1 tick ≈ 6 simulated seconds
+    renderGpuGrid();
+
+    if (state.failedAt !== undefined) return;
+
+    var progressRate = stage.key === "train"
+      ? 1.2 + state.activeGpus*0.55 + Math.random()*0.6
+      : 4.3 + Math.random()*1.5;
+    state.stageProgress += progressRate;
+
+    runStageLabel.textContent = stage.label;
+    var secs = Math.floor((Date.now()-state.startedAt)/1000);
+    elapsedLabel.textContent = String(Math.floor(secs/60)).padStart(2,"0") + ":" + String(secs%60).padStart(2,"0");
+
+    if (Math.random() < 0.16) addLog(logLineFor(stage.key), "info");
+
+    if (state.stageProgress >= 100){
+      var failRoll = Math.random();
+      if (failRoll < FAIL_CHANCE[stage.key]){
+        state.failedAt = state.stageIndex;
+        addLog(stage.label + " failed — " + failReasonFor(stage.key), "err");
+        renderTrack();
+        finishRun("fail", stage.label);
+        return;
+      } else {
+        addLog(stage.label + " complete", "ok");
+        state.stageIndex += 1;
+        state.stageProgress = 0;
+        if (state.stageIndex >= STAGES.length){
+          finishRun("pass");
+          return;
+        }
+      }
+    }
+    renderTrack();
+  }
+
+  function finishRun(status, failedStageLabel){
+    var duration = Math.max(1, Math.round((Date.now()-state.startedAt)/1000));
+    var evalScore = (86 + Math.random()*11).toFixed(1);
+    addHistory({
+      id: state.runId, status: status, failedStageLabel: failedStageLabel,
+      duration: duration, evalScore: evalScore, peakGpus: peakGpusThisRun,
+      cost: (peakGpusThisRun*RATE_PER_GPU_HOUR)*(duration/3600),
+      finishedAt: Date.now(), ago: "just now"
+    });
+    addLog(status==="pass" ? ("— run #"+state.runId+" deployed, eval "+evalScore+"% —") : ("— run #"+state.runId+" stopped —"), status==="pass"?"ok":"warn");
+    setTimeout(function(){ if (state.running) startNewRun(); }, RUN_COOLDOWN_MS);
+  }
+
+  function setRunning(val){
+    state.running = val;
+    toggleBtn.textContent = val ? "Pause" : "Resume";
+    brandDot.style.background = val ? "#FBBF24" : "#55556A";
+    brandDot.style.animationPlayState = val ? "running" : "paused";
+  }
+
+  toggleBtn.addEventListener("click", function(){
+    setRunning(!state.running);
+    addLog(state.running ? "pipeline resumed" : "pipeline paused", "warn");
+  });
+  runNowBtn.addEventListener("click", function(){
+    if (!state.running) setRunning(true);
+    startNewRun();
+  });
+
+  buildTrack();
+  buildGpuGrid();
+  addLog("pipeline initialized", "info");
+  startNewRun();
+  renderHistory();
+  renderGpuGrid();
+
+  setInterval(tick, TICK_MS);
+  setInterval(refreshAgo, 15000);
+})();
+</script>
+</body>
+</html>

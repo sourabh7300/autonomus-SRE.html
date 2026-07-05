@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Continuous Pipeline — trace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0e14;
+    --panel: #131822;
+    --panel-border: #1f2733;
+    --panel-border-soft: #182029;
+    --text-primary: #e7ecf3;
+    --text-secondary: #8793a6;
+    --text-tertiary: #56606f;
+    --accent-primary: #6366f1;
+    --accent-primary-soft: rgba(99,102,241,0.16);
+    --state-idle: #3a4353;
+    --state-running: #f2a93b;
+    --state-running-soft: rgba(242,169,59,0.14);
+    --state-pass: #34d399;
+    --state-pass-soft: rgba(52,211,153,0.14);
+    --state-fail: #f0616d;
+    --state-fail-soft: rgba(240,97,109,0.14);
+    --radius: 10px;
+  }
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: radial-gradient(1200px 600px at 15% -10%, #131a28 0%, var(--bg) 55%);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+  /* ---------- header ---------- */
+  header.topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap: wrap; gap: 14px;
+    margin-bottom: 26px;
+  }
+  .brand{
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand .dot{
+    width:10px; height:10px; border-radius:50%;
+    background: var(--state-running);
+    box-shadow: 0 0 0 4px var(--state-running-soft);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  .brand h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    margin:0;
+  }
+  .brand .sub{
+    color: var(--text-tertiary);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    margin-top:2px;
+  }
+  .controls{ display:flex; align-items:center; gap:10px; }
+  .pill{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    letter-spacing: 0.02em;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    color: var(--text-secondary);
+    background: var(--panel);
+    display:flex; align-items:center; gap:7px;
+  }
+  .pill .dot-sm{ width:6px; height:6px; border-radius:50%; background: var(--state-pass); }
+  button.btn{
+    font-family:'Inter', sans-serif;
+    font-size: 13px; font-weight:600;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease, transform .05s ease;
+  }
+  button.btn:hover{ border-color: var(--accent-primary); background:#161d29; }
+  button.btn:active{ transform: scale(0.97); }
+  button.btn:focus-visible{ outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+  button.btn.primary{
+    background: var(--accent-primary-soft);
+    border-color: rgba(99,102,241,0.4);
+    color: #c7c9fd;
+  }
+
+  /* ---------- pipeline track ---------- */
+  .track-panel{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 34px 28px 26px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .track-meta{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom: 22px; flex-wrap: wrap; gap: 8px;
+  }
+  .track-meta .run-id{
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+  }
+  .track-meta .run-id b{ color: var(--text-primary); font-weight: 600; }
+  .track-meta .elapsed{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+  }
+  svg.track{ width:100%; display:block; height: 132px; overflow: visible; }
+  .stage-label{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    fill: var(--text-primary);
+  }
+  .stage-sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    fill: var(--text-tertiary);
+  }
+
+  /* ---------- panels below ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 720px){ .grid{ grid-template-columns: 1fr; } }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 18px 18px 8px;
+    display:flex; flex-direction:column;
+    min-height: 320px;
+  }
+  .panel h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 12px 2px;
+    color: var(--text-primary);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel h2 span.count{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    font-weight:400;
+    color: var(--text-tertiary);
+  }
+
+  /* history list */
+  .history-list{
+    list-style:none; margin:0; padding:0;
+    overflow-y:auto; flex:1;
+    max-height: 320px;
+  }
+  .history-list li{
+    display:flex; align-items:center; gap:10px;
+    padding: 9px 6px;
+    border-bottom: 1px solid var(--panel-border-soft);
+    font-size: 13px;
+    animation: slideIn .35s ease both;
+  }
+  .history-list li:last-child{ border-bottom:none; }
+  .status-chip{
+    width:8px; height:8px; border-radius:50%;
+    flex-shrink:0;
+  }
+  .status-chip.pass{ background: var(--state-pass); box-shadow:0 0 0 3px var(--state-pass-soft); }
+  .status-chip.fail{ background: var(--state-fail); box-shadow:0 0 0 3px var(--state-fail-soft); }
+  .history-run{
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--text-secondary);
+    font-size:12px;
+    min-width: 46px;
+  }
+  .history-desc{ color: var(--text-primary); flex:1; }
+  .history-desc small{ display:block; color: var(--text-tertiary); font-size:11px; margin-top:1px; font-family:'IBM Plex Mono', monospace; }
+  .history-time{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  /* log stream */
+  .log-stream{
+    flex:1; overflow-y:auto; max-height: 320px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px; line-height: 1.65;
+    padding: 4px 4px 8px;
+  }
+  .log-line{ white-space: pre-wrap; word-break: break-word; animation: fadeIn .25s ease both; }
+  .log-line .t{ color: var(--text-tertiary); margin-right:8px; }
+  .log-line.info{ color: var(--text-secondary); }
+  .log-line.ok{ color: var(--state-pass); }
+  .log-line.warn{ color: var(--state-running); }
+  .log-line.err{ color: var(--state-fail); }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--panel-border); border-radius:8px; }
+
+  footer.note{
+    text-align:center; margin-top: 22px;
+    color: var(--text-tertiary);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+  }
+
+  @keyframes pulse{
+    0%,100%{ box-shadow: 0 0 0 4px var(--state-running-soft); }
+    50%{ box-shadow: 0 0 0 8px transparent; }
+  }
+  @keyframes slideIn{ from{ opacity:0; transform: translateY(-6px); } to{ opacity:1; transform:none; } }
+  @keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot" id="brandDot"></span>
+      <div>
+        <h1>trace / web-app-ci</h1>
+        <div class="sub">continuous pipeline · main branch</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="pill" id="statusPill"><span class="dot-sm"></span><span id="statusPillText">running</span></div>
+      <button class="btn" id="toggleBtn">Pause</button>
+      <button class="btn primary" id="runNowBtn">Run now</button>
+    </div>
+  </header>
+
+  <div class="track-panel">
+    <div class="track-meta">
+      <div class="run-id">Run <b id="runIdLabel">#118</b> — <span id="runStageLabel">Source</span></div>
+      <div class="elapsed" id="elapsedLabel">00:00</div>
+    </div>
+    <svg class="track" id="trackSvg" viewBox="0 0 1000 132" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Run history <span class="count" id="historyCount">0 runs</span></h2>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
+    <section class="panel">
+      <h2>Live log</h2>
+      <div class="log-stream" id="logStream"></div>
+    </section>
+  </div>
+
+  <footer class="note">simulated pipeline · four stages loop continuously · no real builds are executed</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STAGES = [
+    { key:"source", label:"Source",  sub:"git fetch" },
+    { key:"build",  label:"Build",   sub:"compile" },
+    { key:"test",   label:"Test",    sub:"unit + e2e" },
+    { key:"deploy", label:"Deploy",  sub:"staging" }
+  ];
+  var FAIL_CHANCE = { source:0, build:0.06, test:0.16, deploy:0.05 };
+  var TICK_MS = 140;
+  var PROGRESS_PER_TICK = 4.3; // % per tick per stage
+  var RUN_COOLDOWN_MS = 1400;
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var trackSvg = document.getElementById("trackSvg");
+  var runIdLabel = document.getElementById("runIdLabel");
+  var runStageLabel = document.getElementById("runStageLabel");
+  var elapsedLabel = document.getElementById("elapsedLabel");
+  var historyList = document.getElementById("historyList");
+  var historyCount = document.getElementById("historyCount");
+  var logStream = document.getElementById("logStream");
+  var toggleBtn = document.getElementById("toggleBtn");
+  var runNowBtn = document.getElementById("runNowBtn");
+  var statusPillText = document.getElementById("statusPillText");
+  var statusPill = document.getElementById("statusPill");
+  var brandDot = document.getElementById("brandDot");
+
+  var state = {
+    runId: 118,
+    running: true,
+    stageIndex: 0,
+    stageProgress: 0,
+    startedAt: Date.now(),
+    history: [],
+    cooling: false
+  };
+
+  // ---------- build static track (nodes + connecting lines) ----------
+  var NODE_X = [110, 370, 630, 890];
+  var NODE_Y = 66;
+  var NODE_R = 20;
+
+  function buildTrack(){
+    while (trackSvg.firstChild) trackSvg.removeChild(trackSvg.firstChild);
+
+    // base connecting line
+    for (var i=0;i<NODE_X.length-1;i++){
+      var line = document.createElementNS(svgNS,"line");
+      line.setAttribute("x1", NODE_X[i]+NODE_R);
+      line.setAttribute("y1", NODE_Y);
+      line.setAttribute("x2", NODE_X[i+1]-NODE_R);
+      line.setAttribute("y2", NODE_Y);
+      line.setAttribute("stroke", "#1f2733");
+      line.setAttribute("stroke-width", "3");
+      trackSvg.appendChild(line);
+
+      var fillLine = document.createElementNS(svgNS,"line");
+      fillLine.setAttribute("id", "edge-fill-"+i);
+      fillLine.setAttribute("x1", NODE_X[i]+NODE_R);
+      fillLine.setAttribute("y1", NODE_Y);
+      fillLine.setAttribute("x2", NODE_X[i]+NODE_R);
+      fillLine.setAttribute("y2", NODE_Y);
+      fillLine.setAttribute("stroke", "#34d399");
+      fillLine.setAttribute("stroke-width", "3");
+      fillLine.setAttribute("stroke-linecap", "round");
+      trackSvg.appendChild(fillLine);
+    }
+
+    STAGES.forEach(function(s, i){
+      var g = document.createElementNS(svgNS,"g");
+      g.setAttribute("id","node-"+i);
+
+      var glow = document.createElementNS(svgNS,"circle");
+      glow.setAttribute("id","glow-"+i);
+      glow.setAttribute("cx", NODE_X[i]);
+      glow.setAttribute("cy", NODE_Y);
+      glow.setAttribute("r", NODE_R+7);
+      glow.setAttribute("fill", "transparent");
+      g.appendChild(glow);
+
+      var circle = document.createElementNS(svgNS,"circle");
+      circle.setAttribute("id","circle-"+i);
+      circle.setAttribute("cx", NODE_X[i]);
+      circle.setAttribute("cy", NODE_Y);
+      circle.setAttribute("r", NODE_R);
+      circle.setAttribute("fill", "#131822");
+      circle.setAttribute("stroke", "#3a4353");
+      circle.setAttribute("stroke-width", "2.5");
+      g.appendChild(circle);
+
+      var icon = document.createElementNS(svgNS,"text");
+      icon.setAttribute("id","icon-"+i);
+      icon.setAttribute("x", NODE_X[i]);
+      icon.setAttribute("y", NODE_Y+5);
+      icon.setAttribute("text-anchor","middle");
+      icon.setAttribute("font-size","13");
+      icon.setAttribute("fill","#8793a6");
+      icon.textContent = (i+1);
+      g.appendChild(icon);
+
+      var label = document.createElementNS(svgNS,"text");
+      label.setAttribute("x", NODE_X[i]);
+      label.setAttribute("y", NODE_Y+42);
+      label.setAttribute("text-anchor","middle");
+      label.setAttribute("class","stage-label");
+      label.textContent = s.label;
+      g.appendChild(label);
+
+      var sub = document.createElementNS(svgNS,"text");
+      sub.setAttribute("x", NODE_X[i]);
+      sub.setAttribute("y", NODE_Y+58);
+      sub.setAttribute("text-anchor","middle");
+      sub.setAttribute("class","stage-sub");
+      sub.textContent = s.sub;
+      g.appendChild(sub);
+
+      trackSvg.appendChild(g);
+    });
+
+    // traveling comet dot
+    var comet = document.createElementNS(svgNS,"circle");
+    comet.setAttribute("id","comet");
+    comet.setAttribute("r","6");
+    comet.setAttribute("fill","#f2a93b");
+    comet.setAttribute("cx", NODE_X[0]);
+    comet.setAttribute("cy", NODE_Y);
+    trackSvg.appendChild(comet);
+  }
+
+  function colorForState(st){
+    if (st === "pass") return "#34d399";
+    if (st === "fail") return "#f0616d";
+    if (st === "running") return "#f2a93b";
+    return "#3a4353";
+  }
+
+  function renderTrack(){
+    var idx = state.stageIndex;
+    STAGES.forEach(function(s, i){
+      var circle = document.getElementById("circle-"+i);
+      var glow = document.getElementById("glow-"+i);
+      var icon = document.getElementById("icon-"+i);
+      var st = "idle";
+      if (i < idx) st = state.failedAt !== undefined && i >= state.failedAt ? "idle" : "pass";
+      if (i === idx) st = state.failedAt === i ? "fail" : "running";
+      if (state.failedAt !== undefined && i > state.failedAt) st = "idle";
+
+      var c = colorForState(st);
+      circle.setAttribute("stroke", c);
+      circle.setAttribute("fill", st === "idle" ? "#131822" : (st === "running" ? "rgba(242,169,59,0.12)" : (st==="pass" ? "rgba(52,211,153,0.12)" : "rgba(240,97,109,0.12)")));
+      glow.setAttribute("fill", st === "running" ? "rgba(242,169,59,0.10)" : "transparent");
+      icon.textContent = st === "pass" ? "✓" : (st === "fail" ? "✕" : (i+1));
+      icon.setAttribute("fill", c);
+    });
+
+    // edge fills between passed nodes
+    for (var i=0;i<NODE_X.length-1;i++){
+      var fillLine = document.getElementById("edge-fill-"+i);
+      var edgeDone = i < idx && (state.failedAt === undefined || i < state.failedAt);
+      var edgeInProgress = i === idx-0 && false;
+      var targetX = NODE_X[i]+NODE_R;
+      if (edgeDone) targetX = NODE_X[i+1]-NODE_R;
+      else if (i === idx && idx > 0){ /* no partial edge draw needed */ }
+      fillLine.setAttribute("x2", targetX);
+      fillLine.setAttribute("stroke", state.failedAt === i ? "#f0616d" : "#34d399");
+    }
+
+    // comet position: interpolate between current and next node based on progress
+    var comet = document.getElementById("comet");
+    var curX = NODE_X[idx];
+    var nextX = NODE_X[Math.min(idx+1, NODE_X.length-1)];
+    var t = state.stageProgress/100;
+    if (idx >= NODE_X.length-1) t = 0;
+    var cx = curX + (nextX-curX)*Math.min(t,1)*(state.stageProgress>0 && state.failedAt===undefined ? 1 : 0);
+    comet.setAttribute("cx", state.failedAt !== undefined ? NODE_X[state.failedAt] : cx);
+    comet.setAttribute("fill", state.failedAt !== undefined ? "#f0616d" : "#f2a93b");
+  }
+
+  // ---------- logging ----------
+  function timeNow(){
+    var d = new Date();
+    return [d.getHours(), d.getMinutes(), d.getSeconds()].map(function(n){ return String(n).padStart(2,"0"); }).join(":");
+  }
+  function addLog(msg, level){
+    var line = document.createElement("div");
+    line.className = "log-line " + (level||"info");
+    var t = document.createElement("span");
+    t.className = "t";
+    t.textContent = timeNow();
+    line.appendChild(t);
+    line.appendChild(document.createTextNode(msg));
+    logStream.appendChild(line);
+    logStream.scrollTop = logStream.scrollHeight;
+    while (logStream.children.length > 200){ logStream.removeChild(logStream.firstChild); }
+  }
+
+  // ---------- history ----------
+  function addHistory(run){
+    state.history.unshift(run);
+    if (state.history.length > 40) state.history.pop();
+    renderHistory();
+  }
+  function renderHistory(){
+    historyList.innerHTML = "";
+    historyCount.textContent = state.history.length + " runs";
+    state.history.forEach(function(run){
+      var li = document.createElement("li");
+      var chip = document.createElement("span");
+      chip.className = "status-chip " + (run.status === "pass" ? "pass" : "fail");
+      li.appendChild(chip);
+
+      var runNum = document.createElement("span");
+      runNum.className = "history-run";
+      runNum.textContent = "#" + run.id;
+      li.appendChild(runNum);
+
+      var desc = document.createElement("span");
+      desc.className = "history-desc";
+      var main = document.createElement("span");
+      main.textContent = run.status === "pass" ? "Passed all stages" : ("Failed at " + run.failedStageLabel);
+      desc.appendChild(main);
+      var small = document.createElement("small");
+      small.textContent = run.duration + "s · " + run.commit;
+      desc.appendChild(small);
+      li.appendChild(desc);
+
+      var time = document.createElement("span");
+      time.className = "history-time";
+      time.textContent = run.ago;
+      li.appendChild(time);
+
+      historyList.appendChild(li);
+    });
+  }
+  function refreshAgo(){
+    state.history.forEach(function(run){
+      var mins = Math.floor((Date.now() - run.finishedAt)/60000);
+      run.ago = mins < 1 ? "just now" : (mins + "m ago");
+    });
+    renderHistory();
+  }
+
+  function randomCommit(){
+    var chars = "0123456789abcdef";
+    var s = "";
+    for (var i=0;i<7;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+
+  var currentCommit = randomCommit();
+
+  // ---------- run loop ----------
+  function startNewRun(){
+    state.runId += 1;
+    state.stageIndex = 0;
+    state.stageProgress = 0;
+    state.failedAt = undefined;
+    state.startedAt = Date.now();
+    currentCommit = randomCommit();
+    runIdLabel.textContent = "#" + state.runId;
+    addLog("— starting run #" + state.runId + " (" + currentCommit + ") —", "info");
+    renderTrack();
+  }
+
+  function tick(){
+    if (!state.running) return;
+
+    if (state.failedAt !== undefined){
+      // finishing a failed run, handled in finishRun already
+      return;
+    }
+
+    state.stageProgress += PROGRESS_PER_TICK + Math.random()*1.5;
+    var stage = STAGES[state.stageIndex];
+    runStageLabel.textContent = stage.label;
+    var secs = Math.floor((Date.now()-state.startedAt)/1000);
+    elapsedLabel.textContent = String(Math.floor(secs/60)).padStart(2,"0") + ":" + String(secs%60).padStart(2,"0");
+
+    if (state.stageProgress === PROGRESS_PER_TICK || Math.random() < 0.14){
+      addLog(logLineFor(stage.key), "info");
+    }
+
+    if (state.stageProgress >= 100){
+      var failRoll = Math.random();
+      if (failRoll < FAIL_CHANCE[stage.key]){
+        state.failedAt = state.stageIndex;
+        addLog(stage.label + " failed — " + failReasonFor(stage.key), "err");
+        renderTrack();
+        finishRun("fail", stage.label);
+        return;
+      } else {
+        addLog(stage.label + " passed", "ok");
+        state.stageIndex += 1;
+        state.stageProgress = 0;
+        if (state.stageIndex >= STAGES.length){
+          finishRun("pass");
+          return;
+        }
+      }
+    }
+    renderTrack();
+  }
+
+  function logLineFor(key){
+    var lines = {
+      source: ["resolving refs/heads/main", "fetching objects", "checked out " + currentCommit],
+      build: ["installing dependencies", "compiling sources", "bundling assets", "build cache warm"],
+      test: ["running unit suite", "running integration suite", "collecting coverage", "running e2e smoke tests"],
+      deploy: ["provisioning environment", "uploading artifacts", "running health checks", "routing traffic"]
+    };
+    var arr = lines[key] || ["working"];
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+  function failReasonFor(key){
+    var reasons = {
+      build: "dependency resolution error",
+      test: "3 assertions failed in checkout suite",
+      deploy: "health check timeout"
+    };
+    return reasons[key] || "unknown error";
+  }
+
+  function finishRun(status, failedStageLabel){
+    var duration = Math.max(1, Math.round((Date.now()-state.startedAt)/1000));
+    addHistory({
+      id: state.runId,
+      status: status,
+      failedStageLabel: failedStageLabel,
+      duration: duration,
+      commit: currentCommit,
+      finishedAt: Date.now(),
+      ago: "just now"
+    });
+    addLog(status === "pass" ? "— run #" + state.runId + " complete, all stages passed —" : "— run #" + state.runId + " stopped —", status === "pass" ? "ok" : "warn");
+    state.cooling = true;
+    setTimeout(function(){
+      state.cooling = false;
+      if (state.running) startNewRun();
+    }, RUN_COOLDOWN_MS);
+  }
+
+  function setRunning(val){
+    state.running = val;
+    toggleBtn.textContent = val ? "Pause" : "Resume";
+    statusPillText.textContent = val ? "running" : "paused";
+    statusPill.querySelector(".dot-sm").style.background = val ? "#34d399" : "#56606f";
+    brandDot.style.background = val ? "#f2a93b" : "#56606f";
+    brandDot.style.animationPlayState = val ? "running" : "paused";
+  }
+
+  toggleBtn.addEventListener("click", function(){
+    setRunning(!state.running);
+    addLog(state.running ? "pipeline resumed" : "pipeline paused", "warn");
+  });
+  runNowBtn.addEventListener("click", function(){
+    if (!state.running) setRunning(true);
+    startNewRun();
+  });
+
+  buildTrack();
+  addLog("pipeline initialized", "info");
+  startNewRun();
+  renderHistory();
+
+  setInterval(tick, TICK_MS);
+  setInterval(refreshAgo, 15000);
+})();
+</script>
+</body>
+</html>
