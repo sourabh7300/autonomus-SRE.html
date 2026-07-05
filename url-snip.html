@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>snip — shorten a link</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF8;
+    --ink: #101114;
+    --ink-soft: #5B5D63;
+    --ink-faint: #9A9CA3;
+    --line: #E7E6E0;
+    --card: #FFFFFF;
+    --accent: #FF4D00;
+    --accent-soft: rgba(255,77,0,0.08);
+    --accent-line: rgba(255,77,0,0.35);
+    --success: #16A34A;
+    --success-soft: rgba(22,163,74,0.08);
+    --radius: 16px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100%; background: var(--bg); color: var(--ink); font-family:'Inter', sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width: 640px; margin:0 auto; padding: 64px 20px 80px; }
+
+  .hero{ margin-bottom: 34px; }
+  .hero .mark{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12.5px; color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; margin-bottom: 18px;
+  }
+  .hero .mark .dot{ width:6px; height:6px; border-radius:50%; background: var(--accent); }
+  .hero h1{
+    font-family:'Bricolage Grotesque', sans-serif;
+    font-weight: 800;
+    font-size: clamp(38px, 8vw, 54px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  .hero h1 .cut{ color: var(--accent); }
+  .hero p{ font-size: 15.5px; color: var(--ink-soft); margin:0; max-width: 46ch; }
+
+  /* ---------- shorten card ---------- */
+  .shorten-card{
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 30px;
+    box-shadow: 0 1px 0 rgba(16,17,20,0.02);
+  }
+  .input-row{ display:flex; gap:10px; }
+  .input-row input{
+    flex:1; min-width:0;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 13px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .input-row input::placeholder{ color: var(--ink-faint); font-family:'Inter',sans-serif; }
+  .input-row input:focus{ outline: none; border-color: var(--accent); }
+  .snip-btn{
+    font-family:'Inter', sans-serif;
+    font-weight: 700; font-size: 14px;
+    padding: 0 22px;
+    border-radius: 10px; border:none;
+    background: var(--ink); color: #fff;
+    cursor:pointer; white-space:nowrap;
+    transition: background .15s, transform .05s;
+  }
+  .snip-btn:hover{ background:#000; }
+  .snip-btn:active{ transform: scale(0.97); }
+  .snip-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .snip-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .error-msg{ color: var(--accent); font-size: 12.5px; margin-top: 8px; font-family:'Inter',sans-serif; }
+
+  /* ---------- snip animation stage ---------- */
+  .snip-stage{
+    position: relative;
+    height: 0;
+    overflow: hidden;
+    transition: height .5s ease;
+    margin-top: 0;
+  }
+  .snip-stage.active{ height: 74px; margin-top: 16px; }
+  .snip-track{
+    position: relative;
+    border-top: 1.5px dashed var(--line);
+    padding-top: 18px;
+  }
+  .snip-original{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    transition: opacity .4s ease .5s;
+  }
+  .snip-scissors{
+    position: absolute;
+    top: 12px;
+    left: 0;
+    font-size: 16px;
+    transition: left 1s cubic-bezier(.65,0,.35,1);
+    opacity: 0;
+  }
+  .snip-stage.active .snip-scissors{ opacity: 1; left: 100%; transition: left 1s cubic-bezier(.65,0,.35,1), opacity .2s ease 1s; }
+  .snip-stage.active .snip-scissors.done{ opacity:0; }
+  .snip-result{
+    display:flex; align-items:center; gap: 10px;
+    margin-top: 10px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity .35s ease .95s, transform .35s ease .95s;
+  }
+  .snip-stage.active .snip-result{ opacity:1; transform:none; }
+  .snip-result .chip{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 13.5px; font-weight:600;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 8px;
+  }
+  .snip-result .copy-mini{
+    font-family:'Inter', sans-serif;
+    font-size: 12.5px; font-weight:600;
+    color: var(--ink-soft);
+    background: none; border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; cursor:pointer;
+  }
+  .snip-result .copy-mini:hover{ border-color: var(--ink); color: var(--ink); }
+
+  /* ---------- links list ---------- */
+  .section-label{
+    font-family:'Bricolage Grotesque', sans-serif;
+    font-weight:700; font-size: 14px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin: 0 0 12px 2px;
+  }
+  .section-label .hint{ font-family:'Inter',sans-serif; font-weight:400; font-size:12px; color: var(--ink-faint); }
+
+  .link-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .link-item{
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display:flex; align-items:center; gap: 14px;
+  }
+  .link-main{ flex:1; min-width:0; }
+  .link-short{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 14px; font-weight:600; color: var(--ink);
+    display:flex; align-items:center; gap:8px;
+  }
+  .link-short .clicks-badge{
+    font-family:'Inter', sans-serif;
+    font-size: 11px; font-weight:600;
+    background: var(--success-soft); color: var(--success);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .link-original{
+    font-size: 12.5px; color: var(--ink-faint);
+    white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
+    margin-top: 3px;
+  }
+  .link-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .icon-btn{
+    width: 30px; height:30px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg);
+    color: var(--ink-soft); font-size: 13px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition: border-color .15s, color .15s;
+  }
+  .icon-btn:hover{ border-color: var(--ink); color: var(--ink); }
+  .icon-btn.danger:hover{ border-color: var(--accent); color: var(--accent); }
+  .icon-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+
+  .empty-note{
+    text-align:center; padding: 30px 20px;
+    color: var(--ink-faint); font-size: 13.5px;
+    border: 1px dashed var(--line); border-radius: 12px;
+  }
+
+  .redirect-banner{
+    position: fixed; top:0; left:0; right:0;
+    background: var(--ink); color:#fff;
+    text-align:center; padding: 12px;
+    font-family:'JetBrains Mono', monospace; font-size: 13px;
+    transform: translateY(-100%);
+    transition: transform .3s ease;
+    z-index: 20;
+  }
+  .redirect-banner.show{ transform: translateY(0); }
+
+  .toast{
+    position: fixed; bottom: 24px; left:50%;
+    transform: translate(-50%, 20px);
+    background: var(--ink); color:#fff;
+    padding: 10px 18px; border-radius: 999px;
+    font-size: 13px; font-family:'Inter',sans-serif;
+    opacity:0; transition: opacity .2s ease, transform .2s ease;
+    pointer-events:none;
+  }
+  .toast.show{ opacity:1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition: none !important; animation: none !important; } }
+  @media (max-width: 480px){
+    .input-row{ flex-direction: column; }
+    .snip-btn{ padding: 12px 0; }
+  }
+</style>
+</head>
+<body>
+<div class="redirect-banner" id="redirectBanner">redirecting…</div>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="mark"><span class="dot"></span>client-side · no account needed</span>
+    <h1>Long links,<br/><span class="cut">snipped</span> short.</h1>
+    <p>Paste a URL, get a short one back. Everything's saved right here in your browser.</p>
+  </div>
+
+  <div class="shorten-card">
+    <div class="input-row">
+      <input id="urlInput" type="url" placeholder="https://example.com/a/very/long/path?with=params" />
+      <button class="snip-btn" id="snipBtn">Snip it</button>
+    </div>
+    <div class="error-msg" id="errorMsg" style="display:none;"></div>
+
+    <div class="snip-stage" id="snipStage">
+      <div class="snip-track">
+        <div class="snip-original" id="snipOriginal"></div>
+        <span class="snip-scissors" id="snipScissors">✂️</span>
+        <div class="snip-result">
+          <span class="chip" id="resultChip"></span>
+          <button class="copy-mini" id="resultCopyBtn">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Your links <span class="hint" id="linkCountHint"></span></div>
+  <ul class="link-list" id="linkList"></ul>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var els = {
+    urlInput: document.getElementById("urlInput"),
+    snipBtn: document.getElementById("snipBtn"),
+    errorMsg: document.getElementById("errorMsg"),
+    snipStage: document.getElementById("snipStage"),
+    snipOriginal: document.getElementById("snipOriginal"),
+    snipScissors: document.getElementById("snipScissors"),
+    resultChip: document.getElementById("resultChip"),
+    resultCopyBtn: document.getElementById("resultCopyBtn"),
+    linkList: document.getElementById("linkList"),
+    linkCountHint: document.getElementById("linkCountHint"),
+    redirectBanner: document.getElementById("redirectBanner"),
+    toast: document.getElementById("toast")
+  };
+
+  var state = { links: [] };
+  var lastCreatedFullUrl = "";
+
+  function baseUrl(){
+    return location.origin + location.pathname;
+  }
+
+  function randomCode(){
+    var chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var s = "";
+    for (var i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+
+  function isValidUrl(v){
+    try{
+      var u = new URL(v);
+      return u.protocol === "http:" || u.protocol === "https:";
+    }catch(e){ return false; }
+  }
+
+  async function loadLinks(){
+    try{
+      var res = await window.storage.get("links", false);
+      state.links = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){
+      state.links = [];
+    }
+  }
+  async function saveLinks(){
+    try{
+      await window.storage.set("links", JSON.stringify(state.links), false);
+    }catch(e){ console.error("could not save links", e); }
+  }
+
+  function showToast(msg){
+    els.toast.textContent = msg;
+    els.toast.classList.add("show");
+    setTimeout(function(){ els.toast.classList.remove("show"); }, 1600);
+  }
+
+  function renderList(){
+    els.linkList.innerHTML = "";
+    els.linkCountHint.textContent = state.links.length ? (state.links.length + (state.links.length===1 ? " link" : " links")) : "";
+
+    if (state.links.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = "Nothing snipped yet — paste a link above to get started.";
+      els.linkList.appendChild(empty);
+      return;
+    }
+
+    var sorted = state.links.slice().sort(function(a,b){ return b.createdAt - a.createdAt; });
+    sorted.forEach(function(link){
+      var li = document.createElement("li");
+      li.className = "link-item";
+
+      var main = document.createElement("div");
+      main.className = "link-main";
+
+      var shortRow = document.createElement("div");
+      shortRow.className = "link-short";
+      var shortText = document.createElement("span");
+      shortText.textContent = "/#" + link.code;
+      shortRow.appendChild(shortText);
+      var badge = document.createElement("span");
+      badge.className = "clicks-badge";
+      badge.textContent = link.clicks + (link.clicks === 1 ? " click" : " clicks");
+      shortRow.appendChild(badge);
+
+      var orig = document.createElement("div");
+      orig.className = "link-original";
+      orig.textContent = link.original;
+
+      main.appendChild(shortRow);
+      main.appendChild(orig);
+
+      var actions = document.createElement("div");
+      actions.className = "link-actions";
+
+      var copyBtn = document.createElement("button");
+      copyBtn.className = "icon-btn";
+      copyBtn.setAttribute("aria-label","Copy short link");
+      copyBtn.textContent = "⧉";
+      copyBtn.addEventListener("click", function(){ copyToClipboard(baseUrl() + "#" + link.code); });
+
+      var openBtn = document.createElement("button");
+      openBtn.className = "icon-btn";
+      openBtn.setAttribute("aria-label","Open link");
+      openBtn.textContent = "↗";
+      openBtn.addEventListener("click", function(){ window.open(link.original, "_blank"); registerClick(link.code); });
+
+      var delBtn = document.createElement("button");
+      delBtn.className = "icon-btn danger";
+      delBtn.setAttribute("aria-label","Delete link");
+      delBtn.textContent = "✕";
+      delBtn.addEventListener("click", function(){ deleteLink(link.code); });
+
+      actions.appendChild(copyBtn);
+      actions.appendChild(openBtn);
+      actions.appendChild(delBtn);
+
+      li.appendChild(main);
+      li.appendChild(actions);
+      els.linkList.appendChild(li);
+    });
+  }
+
+  function copyToClipboard(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ showToast("Copied to clipboard"); });
+    } else {
+      showToast("Copy this: " + text);
+    }
+  }
+
+  async function deleteLink(code){
+    state.links = state.links.filter(function(l){ return l.code !== code; });
+    renderList();
+    await saveLinks();
+  }
+
+  async function registerClick(code){
+    var link = state.links.find(function(l){ return l.code === code; });
+    if (!link) return;
+    link.clicks += 1;
+    renderList();
+    await saveLinks();
+  }
+
+  function playSnipAnimation(originalUrl, code){
+    els.snipOriginal.textContent = originalUrl;
+    els.resultChip.textContent = "/#" + code;
+    els.snipScissors.classList.remove("done");
+    els.snipStage.classList.remove("active");
+    void els.snipStage.offsetWidth; // restart animation
+    requestAnimationFrame(function(){
+      els.snipStage.classList.add("active");
+    });
+    setTimeout(function(){ els.snipScissors.classList.add("done"); }, 1050);
+  }
+
+  async function handleSnip(){
+    var val = els.urlInput.value.trim();
+    els.errorMsg.style.display = "none";
+
+    if (!val){ return; }
+    var normalized = /^https?:\/\//i.test(val) ? val : "https://" + val;
+    if (!isValidUrl(normalized)){
+      els.errorMsg.textContent = "That doesn't look like a valid URL — try including the full address.";
+      els.errorMsg.style.display = "block";
+      return;
+    }
+
+    var code = randomCode();
+    while (state.links.some(function(l){ return l.code === code; })){
+      code = randomCode();
+    }
+
+    var entry = { code: code, original: normalized, createdAt: Date.now(), clicks: 0 };
+    state.links.push(entry);
+    lastCreatedFullUrl = baseUrl() + "#" + code;
+
+    playSnipAnimation(normalized, code);
+    renderList();
+    await saveLinks();
+    els.urlInput.value = "";
+  }
+
+  els.snipBtn.addEventListener("click", handleSnip);
+  els.urlInput.addEventListener("keydown", function(e){ if (e.key === "Enter") handleSnip(); });
+  els.resultCopyBtn.addEventListener("click", function(){ copyToClipboard(lastCreatedFullUrl); });
+
+  // handle visiting a short link via #code (simulated redirect)
+  async function checkHashRedirect(){
+    var code = location.hash.replace("#","").trim();
+    if (!code) return;
+    await loadLinks();
+    var link = state.links.find(function(l){ return l.code === code; });
+    if (!link) return;
+
+    els.redirectBanner.textContent = "redirecting to " + link.original + " …";
+    els.redirectBanner.classList.add("show");
+    link.clicks += 1;
+    await saveLinks();
+    setTimeout(function(){
+      window.location.href = link.original;
+    }, 900);
+  }
+
+  async function init(){
+    await loadLinks();
+    renderList();
+    if (location.hash){
+      checkHashRedirect();
+    }
+  }
+  init();
+})();
+</script>
+</body>
+</html>

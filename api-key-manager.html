@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>API Keys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0D1117;
+    --panel: #151B23;
+    --panel-2: #1B222C;
+    --border: #262C36;
+    --text: #E6EDF3;
+    --text-soft: #8B949E;
+    --text-faint: #565D68;
+    --accent: #5EEAD4;
+    --accent-soft: rgba(94,234,212,0.12);
+    --accent-line: rgba(94,234,212,0.35);
+    --danger: #F87171;
+    --danger-soft: rgba(248,113,113,0.10);
+    --warn: #FBBF24;
+    --warn-soft: rgba(251,191,36,0.10);
+    --radius: 12px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100%; background: var(--bg); color: var(--text); font-family:'Inter', sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width: 780px; margin:0 auto; padding: 40px 20px 80px; }
+
+  header.top{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap: 16px; flex-wrap:wrap; margin-bottom: 26px;
+  }
+  header.top h1{
+    font-family:'Sora', sans-serif; font-weight:700; font-size: 24px;
+    margin: 0 0 6px; letter-spacing:-0.01em;
+  }
+  header.top p{ margin:0; font-size: 13.5px; color: var(--text-soft); max-width: 46ch; }
+  .new-key-btn{
+    font-family:'Inter', sans-serif; font-weight:700; font-size: 13.5px;
+    background: var(--accent); color:#04211C;
+    border:none; border-radius: 999px; padding: 11px 18px;
+    cursor:pointer; white-space:nowrap;
+    transition: filter .15s, transform .05s;
+  }
+  .new-key-btn:hover{ filter: brightness(1.08); }
+  .new-key-btn:active{ transform: scale(0.97); }
+  .new-key-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---------- create panel ---------- */
+  .create-panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    display:none;
+  }
+  .create-panel.open{ display:block; }
+  .create-panel .field{ margin-bottom: 14px; }
+  .create-panel label{
+    display:block; font-size: 11.5px; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.04em; color: var(--text-faint); margin-bottom:6px;
+  }
+  .create-panel input[type=text]{
+    width:100%; font-family:'IBM Plex Mono', monospace; font-size:14px;
+    padding: 10px 12px; border-radius:8px; border:1px solid var(--border);
+    background: var(--bg); color: var(--text);
+  }
+  .create-panel input:focus{ outline:none; border-color: var(--accent); }
+  .scope-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .scope-chip{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    padding: 7px 13px; border-radius: 999px; border:1px solid var(--border);
+    background: var(--bg); color: var(--text-soft); cursor:pointer; user-select:none;
+    transition: all .15s;
+  }
+  .scope-chip.selected{ background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+  .scope-chip:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .create-actions{ display:flex; gap:10px; margin-top: 16px; }
+  .btn-primary{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:13.5px;
+    background: var(--accent); color:#04211C; border:none; border-radius:8px;
+    padding: 10px 16px; cursor:pointer;
+  }
+  .btn-ghost{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px;
+    background: transparent; color: var(--text-soft); border:1px solid var(--border);
+    border-radius:8px; padding: 10px 16px; cursor:pointer;
+  }
+  .btn-ghost:hover{ border-color: var(--text-soft); color: var(--text); }
+  .field-error{ color: var(--danger); font-size:12px; margin-top:6px; display:none; }
+
+  /* ---------- reveal banner ---------- */
+  .reveal-banner{
+    background: var(--warn-soft);
+    border: 1px solid rgba(251,191,36,0.35);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    display:none;
+  }
+  .reveal-banner.show{ display:block; }
+  .reveal-banner .title{
+    font-family:'Sora', sans-serif; font-weight:600; font-size:14px;
+    color: var(--warn); margin-bottom:4px;
+    display:flex; align-items:center; gap:7px;
+  }
+  .reveal-banner .sub{ font-size:12.5px; color: var(--text-soft); margin-bottom:12px; }
+  .reveal-key-row{ display:flex; gap:10px; align-items:center; }
+  .reveal-key-row .key-text{
+    flex:1; font-family:'IBM Plex Mono', monospace; font-size:13.5px;
+    background: var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding: 10px 12px; overflow-x:auto; white-space:nowrap; color: var(--text);
+  }
+  .reveal-key-row button{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:13px;
+    background: var(--warn); color:#231A02; border:none; border-radius:8px;
+    padding: 10px 14px; cursor:pointer; white-space:nowrap;
+  }
+  .reveal-dismiss{
+    margin-top: 12px; background:none; border:none; color: var(--text-faint);
+    font-size:12px; text-decoration:underline; cursor:pointer; padding:0;
+  }
+
+  /* ---------- key list ---------- */
+  .section-label{
+    font-family:'Sora', sans-serif; font-weight:600; font-size:14px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin: 0 0 12px 2px;
+  }
+  .section-label .hint{ font-family:'Inter',sans-serif; font-weight:400; font-size:12px; color: var(--text-faint); }
+
+  .key-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .key-item{
+    background: var(--panel); border:1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .key-item.revoked{ opacity: 0.55; }
+  .key-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .key-name{ font-family:'Sora', sans-serif; font-weight:600; font-size:14.5px; display:flex; align-items:center; gap:8px; }
+  .status-dot{ width:7px; height:7px; border-radius:50%; }
+  .status-dot.active{ background: var(--accent); }
+  .status-dot.revoked{ background: var(--danger); }
+  .key-masked{
+    font-family:'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-soft);
+    background: var(--panel-2); border:1px solid var(--border); border-radius:7px;
+    padding: 7px 10px; display:inline-flex; align-items:center; gap:8px; margin-bottom:10px;
+  }
+  .key-masked button{
+    background:none; border:none; color: var(--text-faint); cursor:pointer; font-size:12.5px; padding:0;
+  }
+  .key-masked button:hover{ color: var(--accent); }
+  .key-meta-row{ display:flex; gap: 16px; flex-wrap:wrap; font-size:12px; color: var(--text-faint); margin-bottom: 12px; }
+  .key-meta-row b{ color: var(--text-soft); font-weight:600; }
+  .scope-badges{ display:flex; gap:6px; flex-wrap:wrap; }
+  .scope-badge{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    background: var(--panel-2); border:1px solid var(--border); border-radius:999px;
+    padding: 3px 9px; color: var(--text-soft);
+  }
+  .key-actions{ display:flex; gap:8px; margin-top:12px; }
+  .action-btn{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:12.5px;
+    background: transparent; border:1px solid var(--border); border-radius:7px;
+    padding: 7px 12px; color: var(--text-soft); cursor:pointer;
+  }
+  .action-btn:hover{ border-color: var(--text-soft); color: var(--text); }
+  .action-btn.danger:hover{ border-color: var(--danger); color: var(--danger); }
+  .action-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+
+  .empty-note{
+    text-align:center; padding: 34px 20px; color: var(--text-faint); font-size:13.5px;
+    border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+
+  .toast{
+    position: fixed; bottom: 24px; left:50%; transform: translate(-50%, 20px);
+    background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px;
+    font-size: 13px; font-family:'Inter',sans-serif; opacity:0;
+    transition: opacity .2s ease, transform .2s ease; pointer-events:none;
+  }
+  .toast.show{ opacity:1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>API keys</h1>
+      <p>Generate keys to authenticate requests. Full keys are shown once — after that, only the last 4 characters are visible.</p>
+    </div>
+    <button class="new-key-btn" id="newKeyBtn">+ Generate new key</button>
+  </header>
+
+  <div class="create-panel" id="createPanel">
+    <div class="field">
+      <label for="keyNameInput">Name</label>
+      <input type="text" id="keyNameInput" placeholder="e.g. Production backend" maxlength="40" />
+      <div class="field-error" id="nameError">Give this key a name so you can recognize it later.</div>
+    </div>
+    <div class="field">
+      <label>Scopes</label>
+      <div class="scope-row" id="scopeRow">
+        <span class="scope-chip" data-scope="read" tabindex="0" role="button">read</span>
+        <span class="scope-chip" data-scope="write" tabindex="0" role="button">write</span>
+        <span class="scope-chip" data-scope="delete" tabindex="0" role="button">delete</span>
+        <span class="scope-chip" data-scope="admin" tabindex="0" role="button">admin</span>
+      </div>
+    </div>
+    <div class="create-actions">
+      <button class="btn-primary" id="generateBtn">Generate key</button>
+      <button class="btn-ghost" id="cancelCreateBtn">Cancel</button>
+    </div>
+  </div>
+
+  <div class="reveal-banner" id="revealBanner">
+    <div class="title">🔑 Your new key is ready</div>
+    <div class="sub">Copy it now — for your security, you won't be able to see the full key again.</div>
+    <div class="reveal-key-row">
+      <div class="key-text" id="revealKeyText"></div>
+      <button id="revealCopyBtn">Copy</button>
+    </div>
+    <button class="reveal-dismiss" id="revealDismissBtn">I've copied it, hide this</button>
+  </div>
+
+  <div class="section-label">Your keys <span class="hint" id="keyCountHint"></span></div>
+  <ul class="key-list" id="keyList"></ul>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var els = {
+    newKeyBtn: document.getElementById("newKeyBtn"),
+    createPanel: document.getElementById("createPanel"),
+    keyNameInput: document.getElementById("keyNameInput"),
+    nameError: document.getElementById("nameError"),
+    scopeRow: document.getElementById("scopeRow"),
+    generateBtn: document.getElementById("generateBtn"),
+    cancelCreateBtn: document.getElementById("cancelCreateBtn"),
+    revealBanner: document.getElementById("revealBanner"),
+    revealKeyText: document.getElementById("revealKeyText"),
+    revealCopyBtn: document.getElementById("revealCopyBtn"),
+    revealDismissBtn: document.getElementById("revealDismissBtn"),
+    keyList: document.getElementById("keyList"),
+    keyCountHint: document.getElementById("keyCountHint"),
+    toast: document.getElementById("toast")
+  };
+
+  var state = { keys: [], selectedScopes: [] };
+  var lastFullKey = "";
+
+  function genKey(){
+    var chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    var s = "";
+    for (var i=0;i<32;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return "sk_live_" + s;
+  }
+  function maskKey(full){
+    return full.slice(0, 8) + "••••••••••••••••" + full.slice(-4);
+  }
+  function fmtDate(ts){
+    var d = new Date(ts);
+    return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+  }
+
+  async function loadKeys(){
+    try{
+      var res = await window.storage.get("apiKeys", false);
+      state.keys = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){ state.keys = []; }
+  }
+  async function saveKeys(){
+    try{ await window.storage.set("apiKeys", JSON.stringify(state.keys), false); }
+    catch(e){ console.error("could not save keys", e); }
+  }
+
+  function showToast(msg){
+    els.toast.textContent = msg;
+    els.toast.classList.add("show");
+    setTimeout(function(){ els.toast.classList.remove("show"); }, 1600);
+  }
+  function copyToClipboard(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ showToast("Copied to clipboard"); });
+    } else {
+      showToast("Copy this: " + text);
+    }
+  }
+
+  function openCreatePanel(){
+    els.createPanel.classList.add("open");
+    els.keyNameInput.value = "";
+    els.nameError.style.display = "none";
+    state.selectedScopes = [];
+    Array.prototype.forEach.call(els.scopeRow.children, function(chip){ chip.classList.remove("selected"); });
+    els.keyNameInput.focus();
+  }
+  function closeCreatePanel(){ els.createPanel.classList.remove("open"); }
+
+  els.newKeyBtn.addEventListener("click", openCreatePanel);
+  els.cancelCreateBtn.addEventListener("click", closeCreatePanel);
+
+  Array.prototype.forEach.call(els.scopeRow.children, function(chip){
+    function toggle(){
+      var scope = chip.getAttribute("data-scope");
+      var idx = state.selectedScopes.indexOf(scope);
+      if (idx === -1){ state.selectedScopes.push(scope); chip.classList.add("selected"); }
+      else { state.selectedScopes.splice(idx,1); chip.classList.remove("selected"); }
+    }
+    chip.addEventListener("click", toggle);
+    chip.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+  });
+
+  async function handleGenerate(){
+    var name = els.keyNameInput.value.trim();
+    if (!name){
+      els.nameError.style.display = "block";
+      els.keyNameInput.focus();
+      return;
+    }
+    var scopes = state.selectedScopes.length ? state.selectedScopes.slice() : ["read"];
+    var fullKey = genKey();
+    var entry = {
+      id: Date.now(),
+      name: name,
+      fullKey: fullKey,
+      scopes: scopes,
+      createdAt: Date.now(),
+      lastUsed: null,
+      status: "active"
+    };
+    state.keys.push(entry);
+    lastFullKey = fullKey;
+
+    closeCreatePanel();
+    els.revealKeyText.textContent = fullKey;
+    els.revealBanner.classList.add("show");
+    renderList();
+    await saveKeys();
+  }
+  els.generateBtn.addEventListener("click", handleGenerate);
+  els.keyNameInput.addEventListener("keydown", function(e){ if (e.key === "Enter") handleGenerate(); });
+
+  els.revealCopyBtn.addEventListener("click", function(){ copyToClipboard(lastFullKey); });
+  els.revealDismissBtn.addEventListener("click", function(){ els.revealBanner.classList.remove("show"); });
+
+  async function revokeKey(id){
+    var k = state.keys.find(function(k){ return k.id === id; });
+    if (!k) return;
+    k.status = k.status === "active" ? "revoked" : "active";
+    renderList();
+    await saveKeys();
+  }
+  async function deleteKey(id){
+    state.keys = state.keys.filter(function(k){ return k.id !== id; });
+    renderList();
+    await saveKeys();
+  }
+
+  function renderList(){
+    els.keyList.innerHTML = "";
+    els.keyCountHint.textContent = state.keys.length ? (state.keys.length + (state.keys.length===1 ? " key" : " keys")) : "";
+
+    if (state.keys.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = "No keys yet — generate one to start authenticating requests.";
+      els.keyList.appendChild(empty);
+      return;
+    }
+
+    var sorted = state.keys.slice().sort(function(a,b){ return b.createdAt - a.createdAt; });
+    sorted.forEach(function(k){
+      var li = document.createElement("li");
+      li.className = "key-item" + (k.status === "revoked" ? " revoked" : "");
+
+      var top = document.createElement("div");
+      top.className = "key-top";
+      var name = document.createElement("div");
+      name.className = "key-name";
+      var dot = document.createElement("span");
+      dot.className = "status-dot " + (k.status === "active" ? "active" : "revoked");
+      name.appendChild(dot);
+      name.appendChild(document.createTextNode(k.name));
+      top.appendChild(name);
+
+      var statusText = document.createElement("span");
+      statusText.style.fontSize = "11.5px";
+      statusText.style.color = k.status === "active" ? "var(--accent)" : "var(--danger)";
+      statusText.style.fontFamily = "'IBM Plex Mono', monospace";
+      statusText.textContent = k.status === "active" ? "Active" : "Revoked";
+      top.appendChild(statusText);
+
+      var masked = document.createElement("div");
+      masked.className = "key-masked";
+      var maskedText = document.createElement("span");
+      maskedText.textContent = maskKey(k.fullKey);
+      masked.appendChild(maskedText);
+      var copyLast = document.createElement("button");
+      copyLast.textContent = "copy";
+      copyLast.setAttribute("aria-label","Copy masked key reference");
+      copyLast.addEventListener("click", function(){ copyToClipboard(maskKey(k.fullKey)); });
+      masked.appendChild(copyLast);
+
+      var meta = document.createElement("div");
+      meta.className = "key-meta-row";
+      var created = document.createElement("span");
+      created.innerHTML = "";
+      created.textContent = "Created " + fmtDate(k.createdAt);
+      var lastUsed = document.createElement("span");
+      lastUsed.textContent = "Last used: " + (k.lastUsed ? fmtDate(k.lastUsed) : "Never");
+      meta.appendChild(created);
+      meta.appendChild(lastUsed);
+
+      var scopes = document.createElement("div");
+      scopes.className = "scope-badges";
+      k.scopes.forEach(function(s){
+        var b = document.createElement("span");
+        b.className = "scope-badge";
+        b.textContent = s;
+        scopes.appendChild(b);
+      });
+
+      var actions = document.createElement("div");
+      actions.className = "key-actions";
+      var revokeBtn = document.createElement("button");
+      revokeBtn.className = "action-btn";
+      revokeBtn.textContent = k.status === "active" ? "Revoke" : "Reactivate";
+      revokeBtn.addEventListener("click", function(){ revokeKey(k.id); });
+      var deleteBtn = document.createElement("button");
+      deleteBtn.className = "action-btn danger";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", function(){ deleteKey(k.id); });
+      actions.appendChild(revokeBtn);
+      actions.appendChild(deleteBtn);
+
+      li.appendChild(top);
+      li.appendChild(masked);
+      li.appendChild(meta);
+      li.appendChild(scopes);
+      li.appendChild(actions);
+      els.keyList.appendChild(li);
+    });
+  }
+
+  async function init(){
+    await loadKeys();
+    renderList();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

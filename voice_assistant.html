@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo — Ask Anything</title>
+<style>
+  :root {
+    --bg-deep: #0b0e1a;
+    --bg-panel: #12162a;
+    --ink: #eef0fb;
+    --ink-dim: #9296b8;
+    --amber: #f2a83c;
+    --amber-dim: #7a5a24;
+    --line: #232946;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @font-face {
+    font-family: 'system-serif';
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: radial-gradient(ellipse at 50% 0%, #171c34 0%, var(--bg-deep) 60%);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px 20px;
+    overflow-x: hidden;
+  }
+
+  .brand {
+    font-size: 13px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+  }
+
+  .brand span { color: var(--amber); }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-bottom: 28px;
+    text-align: center;
+    max-width: 420px;
+  }
+
+  .stage {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+  }
+
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .ring1 { width: 220px; height: 220px; }
+  .ring2 { width: 180px; height: 180px; }
+
+  .stage.listening .ring {
+    opacity: 1;
+    animation: pulse 1.8s ease-out infinite;
+  }
+  .stage.listening .ring2 { animation-delay: 0.4s; }
+
+  @keyframes pulse {
+    0% { transform: scale(0.7); opacity: 0.7; border-color: var(--amber); }
+    100% { transform: scale(1); opacity: 0; border-color: var(--amber); }
+  }
+
+  .orb {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #1c2140, var(--bg-panel) 70%);
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 0 rgba(242,168,60,0);
+  }
+
+  .orb:hover { transform: scale(1.03); }
+  .orb:active { transform: scale(0.97); }
+
+  .stage.listening .orb {
+    border-color: var(--amber);
+    box-shadow: 0 0 40px rgba(242,168,60,0.25);
+  }
+
+  .stage.thinking .orb {
+    border-color: #6c7bff;
+    box-shadow: 0 0 40px rgba(108,123,255,0.25);
+    animation: think 1.2s ease-in-out infinite;
+  }
+  @keyframes think {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .mic-icon {
+    width: 34px;
+    height: 34px;
+    stroke: var(--ink-dim);
+    fill: none;
+    stroke-width: 1.6;
+    transition: stroke 0.3s ease;
+  }
+  .stage.listening .mic-icon { stroke: var(--amber); }
+
+  .status {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    height: 18px;
+    margin-bottom: 26px;
+  }
+  .status.active { color: var(--amber); }
+
+  .panel {
+    width: 100%;
+    max-width: 560px;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .exchange {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-right: 4px;
+  }
+
+  .exchange::-webkit-scrollbar { width: 4px; }
+  .exchange::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+
+  .bubble-row { display: flex; flex-direction: column; gap: 4px; }
+  .bubble-row.q { align-items: flex-end; }
+  .bubble-row.a { align-items: flex-start; }
+
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  .bubble {
+    max-width: 88%;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .bubble.q {
+    background: #1b2140;
+    border: 1px solid var(--line);
+    border-bottom-right-radius: 4px;
+  }
+  .bubble.a {
+    background: transparent;
+    border: 1px solid var(--amber-dim);
+    border-bottom-left-radius: 4px;
+    color: var(--ink);
+  }
+
+  .empty {
+    margin: auto;
+    text-align: center;
+    color: var(--ink-dim);
+    font-size: 14px;
+    max-width: 300px;
+    line-height: 1.6;
+  }
+
+  .empty strong { color: var(--ink); font-weight: 500; }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  .input-row input {
+    flex: 1;
+    background: #0e1226;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--ink);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .input-row input:focus { border-color: var(--amber-dim); }
+
+  .input-row button {
+    background: var(--amber);
+    color: #1a1204;
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+  .input-row button:hover { opacity: 0.88; }
+  .input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .mute-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 11px;
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 6px 12px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+  }
+  .mute-toggle.on { color: var(--amber); border-color: var(--amber-dim); }
+
+  .unsupported {
+    font-size: 12px;
+    color: var(--ink-dim);
+    text-align: center;
+    margin-top: 8px;
+    max-width: 420px;
+  }
+</style>
+</head>
+<body>
+
+  <button class="mute-toggle" id="muteBtn" onclick="toggleMute()">🔊 Voice reply: on</button>
+
+  <div class="brand">Echo<span>·</span>your question, answered</div>
+  <div class="subtitle">Tap the orb and ask anything out loud — or type below.</div>
+
+  <div class="stage" id="stage">
+    <div class="ring ring1"></div>
+    <div class="ring ring2"></div>
+    <div class="orb" id="orbBtn" onclick="toggleListen()">
+      <svg class="mic-icon" id="micIcon" viewBox="0 0 24 24">
+        <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+        <line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="9" y1="22" x2="15" y2="22"/>
+      </svg>
+    </div>
+  </div>
+  <div class="status" id="statusText">TAP TO SPEAK</div>
+
+  <div class="panel">
+    <div class="exchange" id="exchange">
+      <div class="empty" id="emptyState">Ask about <strong>anything</strong> — facts, ideas, explanations, advice.<br>Echo will answer out loud.</div>
+    </div>
+    <div class="input-row">
+      <input type="text" id="textInput" placeholder="Or type your question…" onkeydown="if(event.key==='Enter') sendText()">
+      <button onclick="sendText()" id="sendBtn">Ask</button>
+    </div>
+    <div class="unsupported" id="unsupportedMsg" style="display:none;"></div>
+  </div>
+
+<script>
+let recognition = null;
+let isListening = false;
+let muted = false;
+let history = [];
+
+const stage = document.getElementById('stage');
+const statusText = document.getElementById('statusText');
+const exchange = document.getElementById('exchange');
+const emptyState = document.getElementById('emptyState');
+const unsupportedMsg = document.getElementById('unsupportedMsg');
+const sendBtn = document.getElementById('sendBtn');
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onstart = () => {
+    isListening = true;
+    stage.classList.add('listening');
+    statusText.textContent = 'LISTENING…';
+    statusText.classList.add('active');
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    stage.classList.remove('listening');
+    if (!stage.classList.contains('thinking')) {
+      statusText.textContent = 'TAP TO SPEAK';
+      statusText.classList.remove('active');
+    }
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false;
+    stage.classList.remove('listening');
+    statusText.textContent = e.error === 'not-allowed' ? 'MIC ACCESS DENIED' : 'TAP TO SPEAK';
+    statusText.classList.remove('active');
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    askQuestion(transcript);
+  };
+} else {
+  unsupportedMsg.style.display = 'block';
+  unsupportedMsg.textContent = 'Voice input isn\'t supported in this browser — try Chrome or Safari, or just type your question below.';
+  document.getElementById('orbBtn').style.opacity = '0.4';
+  document.getElementById('orbBtn').style.cursor = 'default';
+}
+
+function toggleListen() {
+  if (!recognition) return;
+  if (isListening) {
+    recognition.stop();
+  } else {
+    window.speechSynthesis.cancel();
+    try { recognition.start(); } catch (err) { /* already started */ }
+  }
+}
+
+function toggleMute() {
+  muted = !muted;
+  const btn = document.getElementById('muteBtn');
+  btn.textContent = muted ? '🔇 Voice reply: off' : '🔊 Voice reply: on';
+  btn.classList.toggle('on', !muted);
+  if (muted) window.speechSynthesis.cancel();
+}
+
+function sendText() {
+  const input = document.getElementById('textInput');
+  const val = input.value.trim();
+  if (!val) return;
+  input.value = '';
+  askQuestion(val);
+}
+
+function addBubble(role, text) {
+  emptyState.style.display = 'none';
+  const row = document.createElement('div');
+  row.className = 'bubble-row ' + (role === 'user' ? 'q' : 'a');
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = role === 'user' ? 'You' : 'Echo';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + (role === 'user' ? 'q' : 'a');
+  bubble.textContent = text;
+  row.appendChild(label);
+  row.appendChild(bubble);
+  exchange.appendChild(row);
+  exchange.scrollTop = exchange.scrollHeight;
+  return bubble;
+}
+
+async function askQuestion(question) {
+  addBubble('user', question);
+  history.push({ role: 'user', content: question });
+
+  stage.classList.add('thinking');
+  statusText.textContent = 'THINKING…';
+  statusText.classList.add('active');
+  sendBtn.disabled = true;
+
+  const answerBubble = addBubble('assistant', '…');
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: "You are Echo, a warm, concise voice assistant like Siri. Answer questions directly and conversationally in 1-4 sentences unless the user clearly wants more detail. Avoid markdown formatting since your answers may be read aloud.",
+        messages: history
+      })
+    });
+    const data = await response.json();
+    const textBlock = data.content.find(b => b.type === 'text');
+    const answer = textBlock ? textBlock.text : "Sorry, I couldn't come up with an answer for that.";
+
+    answerBubble.textContent = answer;
+    history.push({ role: 'assistant', content: answer });
+    exchange.scrollTop = exchange.scrollHeight;
+
+    if (!muted && 'speechSynthesis' in window) {
+      const utter = new SpeechSynthesisUtterance(answer);
+      utter.rate = 1.02;
+      window.speechSynthesis.speak(utter);
+    }
+  } catch (err) {
+    answerBubble.textContent = "Something went wrong reaching the assistant. Please try again.";
+  } finally {
+    stage.classList.remove('thinking');
+    statusText.textContent = 'TAP TO SPEAK';
+    statusText.classList.remove('active');
+    sendBtn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
