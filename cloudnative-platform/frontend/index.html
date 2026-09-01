@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Tracker — CloudNative Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Task Tracker</h1>
+      <p class="subtitle">Sample app for the CloudNative Platform project</p>
+    </header>
+
+    <form id="task-form">
+      <input type="text" id="task-input" placeholder="Add a new task..." required>
+      <button type="submit">Add</button>
+    </form>
+
+    <ul id="task-list"></ul>
+
+    <footer>
+      <span id="status-indicator">Connecting to API...</span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

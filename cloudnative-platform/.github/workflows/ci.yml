@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm test
+
+  build-and-scan:
+    needs: test-api
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, worker, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t ${{ matrix.service }}:ci -f ${{ matrix.service }}/Dockerfile ${{ matrix.service }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.service }}:ci
+          severity: CRITICAL,HIGH
+          exit-code: 0 # set to 1 once you want the pipeline to fail on findings
+
+      # Uncomment once AWS OIDC + ECR are set up (Phase 1):
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/github-actions-ecr-push
+      #     aws-region: us-east-1
+      #
+      # - name: Push to ECR
+      #   run: |
+      #     aws ecr get-login-password | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+      #     docker tag ${{ matrix.service }}:ci <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/${{ matrix.service }}:${{ github.sha }}
+      #     docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/${{ matrix.service }}:${{ github.sha }}

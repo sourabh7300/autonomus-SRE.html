@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ephemeral Playgrounds — IaC-provisioned sandboxes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B2545;
+    --panel: #123661;
+    --panel-2: #164073;
+    --border: #2A5C94;
+    --text: #EAF2FB;
+    --text-soft: #9DBEDD;
+    --text-faint: #5F87AF;
+    --cyan: #67E8F9;
+    --cyan-soft: rgba(103,232,249,0.14);
+    --cyan-line: rgba(103,232,249,0.4);
+    --amber: #FBBF24;
+    --amber-soft: rgba(251,191,36,0.14);
+    --red: #F87171;
+    --red-soft: rgba(248,113,113,0.14);
+    --green: #34D399;
+    --green-soft: rgba(52,211,153,0.14);
+    --radius: 12px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100%;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 26px 26px;
+    color: var(--text); font-family:'Inter', sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width: 1140px; margin:0 auto; padding: 28px 20px 70px; }
+
+  header.top{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+  .brand{ display:flex; gap:12px; align-items:flex-start; }
+  .brand .dot{ width:10px; height:10px; border-radius:50%; margin-top:7px; background: var(--cyan); box-shadow: 0 0 0 4px var(--cyan-soft); animation: pulse 1.8s ease-in-out infinite; flex-shrink:0; }
+  .brand h1{ font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:26px; margin:0; letter-spacing:0.01em; text-transform:uppercase; }
+  .brand .sub{ font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--text-faint); margin-top:3px; }
+  .stat-cluster{ display:flex; gap:22px; }
+  .stat{ text-align:right; }
+  .stat .stat-label{ font-size:10.5px; color: var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px; }
+  .stat .stat-value{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:19px; color: var(--cyan); }
+
+  .panel{ background: var(--panel); border:1px solid var(--border); border-radius: var(--radius); padding:20px 22px; margin-bottom:18px; }
+  .panel h2{ font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:17px; text-transform:uppercase; letter-spacing:0.02em; margin:0 0 4px; display:flex; justify-content:space-between; align-items:baseline; }
+  .panel h2 span.count{ font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:400; color: var(--text-faint); text-transform:none; letter-spacing:0; }
+  .panel .panel-sub{ font-size:12px; color: var(--text-faint); margin-bottom:16px; }
+
+  /* ---------- launch form ---------- */
+  .template-row{ display:grid; grid-template-columns: repeat(4,1fr); gap:10px; margin-bottom:16px; }
+  @media (max-width:760px){ .template-row{ grid-template-columns: repeat(2,1fr); } }
+  .template-card{
+    background: var(--panel-2); border:1.5px solid var(--border); border-radius:10px;
+    padding: 12px; cursor:pointer; transition: border-color .15s, background .15s;
+  }
+  .template-card.selected{ border-color: var(--cyan); background: var(--cyan-soft); }
+  .template-card .t-icon{ font-size:18px; margin-bottom:6px; }
+  .template-card .t-name{ font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:14px; margin-bottom:2px; }
+  .template-card .t-meta{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color: var(--text-faint); }
+
+  .ttl-row{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .ttl-row .ttl-label{ font-size:11.5px; color: var(--text-faint); text-transform:uppercase; letter-spacing:0.04em; margin-right:6px; }
+  .ttl-chip{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    padding: 7px 13px; border-radius: 999px; border:1px solid var(--border);
+    background: var(--panel-2); color: var(--text-soft); cursor:pointer;
+  }
+  .ttl-chip.selected{ background: var(--cyan-soft); border-color: var(--cyan-line); color: var(--cyan); }
+
+  .launch-btn{
+    font-family:'Inter', sans-serif; font-weight:700; font-size:14px;
+    background: var(--cyan); color:#052430; border:none; border-radius:999px;
+    padding: 11px 22px; cursor:pointer; transition: filter .15s, transform .05s;
+  }
+  .launch-btn:hover{ filter: brightness(1.08); }
+  .launch-btn:active{ transform: scale(0.97); }
+
+  /* ---------- fleet grid ---------- */
+  .fleet-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:12px; }
+  @media (max-width:900px){ .fleet-grid{ grid-template-columns: repeat(2,1fr); } }
+  @media (max-width:600px){ .fleet-grid{ grid-template-columns: 1fr; } }
+  .pg-card{ background: var(--panel-2); border:1.5px dashed var(--border); border-radius:10px; padding:14px; position:relative; }
+  .pg-card.active-card{ border-style: solid; }
+  .pg-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:8px; }
+  .pg-name{ font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:14px; }
+  .pg-id{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color: var(--text-faint); }
+  .pg-meta{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color: var(--text-soft); margin-bottom:10px; line-height:1.5; }
+  .ring-wrap{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .ring-wrap svg{ flex-shrink:0; }
+  .ring-info .ring-time{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:15px; }
+  .ring-info .ring-status{ font-size:10.5px; color: var(--text-faint); text-transform:uppercase; letter-spacing:0.03em; }
+  .provision-bar-track{ height:6px; border-radius:4px; background: var(--panel); overflow:hidden; margin-bottom:10px; }
+  .provision-bar-fill{ height:100%; background: var(--cyan); border-radius:4px; transition: width .15s linear; }
+  .provision-stage-text{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--cyan); margin-bottom:10px; }
+  .pg-actions{ display:flex; gap:6px; }
+  .pg-btn{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:11.5px;
+    background: transparent; border:1px solid var(--border); border-radius:7px;
+    padding: 6px 10px; color: var(--text-soft); cursor:pointer; flex:1;
+  }
+  .pg-btn:hover{ border-color: var(--cyan); color: var(--cyan); }
+  .pg-btn.danger:hover{ border-color: var(--red); color: var(--red); }
+  .empty-note{ text-align:center; padding:28px 20px; color: var(--text-faint); font-size:13px; border:1px dashed var(--border); border-radius:10px; grid-column: 1/-1; }
+
+  /* ---------- history + logs ---------- */
+  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+  .side-panel{ min-height: 280px; display:flex; flex-direction:column; }
+  .history-list{ list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; max-height:280px; }
+  .history-list li{ display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px solid #1d4a80; font-size:13px; }
+  .history-list li:last-child{ border-bottom:none; }
+  .status-chip{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-chip.expired{ background: var(--amber); box-shadow:0 0 0 3px var(--amber-soft); }
+  .status-chip.manual{ background: var(--text-faint); box-shadow:0 0 0 3px rgba(95,135,175,0.2); }
+  .history-desc{ color: var(--text); flex:1; }
+  .history-desc small{ display:block; color: var(--text-faint); font-size:11px; margin-top:1px; font-family:'IBM Plex Mono', monospace; }
+  .history-time{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--text-faint); white-space:nowrap; }
+
+  .log-stream{ flex:1; overflow-y:auto; max-height:280px; font-family:'IBM Plex Mono', monospace; font-size:11.5px; line-height:1.7; padding:4px 4px 8px; }
+  .log-line{ white-space:pre-wrap; word-break:break-word; }
+  .log-line .t{ color: var(--text-faint); margin-right:8px; }
+  .log-line.info{ color: var(--text-soft); }
+  .log-line.ok{ color: var(--green); }
+  .log-line.warn{ color: var(--amber); }
+  .log-line.err{ color: var(--red); }
+  .log-line.plan{ color: var(--cyan); }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius:8px; }
+
+  footer.note{ text-align:center; margin-top:20px; color: var(--text-faint); font-family:'IBM Plex Mono', monospace; font-size:11.5px; }
+
+  @keyframes pulse{ 0%,100%{ box-shadow: 0 0 0 4px var(--cyan-soft); } 50%{ box-shadow: 0 0 0 8px transparent; } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="dot" id="brandDot"></span>
+      <div>
+        <h1>Ephemeral Playgrounds</h1>
+        <div class="sub">IaC-provisioned sandboxes · auto-destroy on TTL expiry</div>
+      </div>
+    </div>
+    <div class="stat-cluster">
+      <div class="stat"><div class="stat-label">Active</div><div class="stat-value" id="activeCountStat">0</div></div>
+      <div class="stat"><div class="stat-label">Launched</div><div class="stat-value" id="launchedCountStat">0</div></div>
+      <div class="stat"><div class="stat-label">Compute-hrs saved</div><div class="stat-value" id="savedHoursStat">0.0</div></div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>Launch a playground</h2>
+    <div class="panel-sub">Pick a template and a lifetime. It'll provision automatically and tear itself down when the timer hits zero.</div>
+    <div class="template-row" id="templateRow"></div>
+    <div class="ttl-row">
+      <span class="ttl-label">Lifetime</span>
+      <span class="ttl-chip" data-ttl="60">1 min</span>
+      <span class="ttl-chip" data-ttl="180">3 min</span>
+      <span class="ttl-chip" data-ttl="300">5 min</span>
+    </div>
+    <button class="launch-btn" id="launchBtn">Provision playground</button>
+  </section>
+
+  <section class="panel">
+    <h2>Active fleet <span class="count" id="fleetCount">0 running</span></h2>
+    <div class="panel-sub">Each card is one isolated sandbox, provisioned from scratch and destroyed completely when its lifetime ends.</div>
+    <div class="fleet-grid" id="fleetGrid"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel side-panel">
+      <h2>Fleet history <span class="count" id="historyCount">0 total</span></h2>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
+    <section class="panel side-panel">
+      <h2>IaC log</h2>
+      <div class="log-stream" id="logStream"></div>
+    </section>
+  </div>
+
+  <footer class="note">simulated infrastructure · no real cloud resources are provisioned or billed</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var TEMPLATES = [
+    { key:"jupyter", name:"Jupyter GPU Sandbox", icon:"📓", gpu:"1× A100", region:"us-east-1" },
+    { key:"evalharness", name:"LLM Eval Harness", icon:"📊", gpu:"2× A10G", region:"us-west-2" },
+    { key:"finetune", name:"Fine-tune Scratch", icon:"🧪", gpu:"4× A100", region:"eu-west-1" },
+    { key:"vectordb", name:"Vector DB Playground", icon:"🗂️", gpu:"0 GPU · CPU only", region:"ap-south-1" }
+  ];
+  var PROVISION_STAGES = ["Validating config", "Provisioning infra", "Configuring environment", "Ready"];
+  var TICK_MS = 200;
+  var idCounter = 1000;
+
+  var els = {
+    templateRow: document.getElementById("templateRow"),
+    launchBtn: document.getElementById("launchBtn"),
+    fleetGrid: document.getElementById("fleetGrid"),
+    fleetCount: document.getElementById("fleetCount"),
+    historyList: document.getElementById("historyList"),
+    historyCount: document.getElementById("historyCount"),
+    logStream: document.getElementById("logStream"),
+    activeCountStat: document.getElementById("activeCountStat"),
+    launchedCountStat: document.getElementById("launchedCountStat"),
+    savedHoursStat: document.getElementById("savedHoursStat"),
+    brandDot: document.getElementById("brandDot")
+  };
+
+  var state = {
+    selectedTemplate: TEMPLATES[0].key,
+    selectedTtl: 180,
+    playgrounds: [],   // {id, template, ttlSec, remainingMs, status, provisionIdx, provisionProgress, destroyProgress, launchedAt}
+    history: [],
+    launchedCount: 0,
+    savedHours: 0
+  };
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function timeNow(){ var d=new Date(); return [d.getHours(),d.getMinutes(),d.getSeconds()].map(function(n){return String(n).padStart(2,"0");}).join(":"); }
+  function fmtSecs(ms){
+    var s = Math.max(0, Math.ceil(ms/1000));
+    return String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0");
+  }
+
+  function addLog(msg, level){
+    var line = document.createElement("div");
+    line.className = "log-line " + (level||"info");
+    var t = document.createElement("span"); t.className="t"; t.textContent = timeNow();
+    line.appendChild(t); line.appendChild(document.createTextNode(msg));
+    els.logStream.appendChild(line);
+    els.logStream.scrollTop = els.logStream.scrollHeight;
+    while (els.logStream.children.length > 200){ els.logStream.removeChild(els.logStream.firstChild); }
+  }
+
+  // ---------- template + ttl selectors ----------
+  function buildTemplateRow(){
+    els.templateRow.innerHTML = "";
+    TEMPLATES.forEach(function(t){
+      var card = document.createElement("div");
+      card.className = "template-card" + (t.key===state.selectedTemplate ? " selected" : "");
+      card.setAttribute("data-key", t.key);
+      card.innerHTML =
+        '<div class="t-icon">'+t.icon+'</div>' +
+        '<div class="t-name">'+t.name+'</div>' +
+        '<div class="t-meta">'+t.gpu+' · '+t.region+'</div>';
+      card.addEventListener("click", function(){
+        state.selectedTemplate = t.key;
+        Array.prototype.forEach.call(els.templateRow.children, function(c){ c.classList.toggle("selected", c.getAttribute("data-key")===t.key); });
+      });
+      els.templateRow.appendChild(card);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".ttl-chip"), function(chip){
+    if (parseInt(chip.getAttribute("data-ttl"),10) === state.selectedTtl) chip.classList.add("selected");
+    chip.addEventListener("click", function(){
+      state.selectedTtl = parseInt(chip.getAttribute("data-ttl"),10);
+      Array.prototype.forEach.call(document.querySelectorAll(".ttl-chip"), function(c){ c.classList.remove("selected"); });
+      chip.classList.add("selected");
+    });
+  });
+
+  // ---------- launch ----------
+  function launchPlayground(templateKey, ttlSec){
+    var template = TEMPLATES.find(function(t){ return t.key === templateKey; }) || TEMPLATES[0];
+    idCounter += 1;
+    var pg = {
+      id: "pg-" + idCounter.toString(36),
+      template: template,
+      ttlSec: ttlSec,
+      remainingMs: ttlSec*1000,
+      status: "provisioning",
+      provisionIdx: 0,
+      provisionProgress: 0,
+      destroyProgress: 0,
+      launchedAt: Date.now()
+    };
+    state.playgrounds.push(pg);
+    state.launchedCount += 1;
+    els.launchedCountStat.textContent = state.launchedCount;
+    addLog("terraform plan: " + template.name + " → +7 resources", "plan");
+    return pg;
+  }
+  els.launchBtn.addEventListener("click", function(){
+    launchPlayground(state.selectedTemplate, state.selectedTtl);
+  });
+
+  function addHistory(entry){
+    state.history.unshift(entry);
+    if (state.history.length > 40) state.history.pop();
+    renderHistory();
+  }
+  function renderHistory(){
+    els.historyList.innerHTML = "";
+    els.historyCount.textContent = state.history.length + " total";
+    if (state.history.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.style.gridColumn = "auto";
+      empty.textContent = "No playgrounds destroyed yet.";
+      els.historyList.appendChild(empty);
+      return;
+    }
+    state.history.forEach(function(h){
+      var li = document.createElement("li");
+      var chip = document.createElement("span"); chip.className = "status-chip " + h.reason;
+      li.appendChild(chip);
+      var desc = document.createElement("span"); desc.className = "history-desc";
+      var main = document.createElement("span"); main.textContent = h.templateName + " destroyed";
+      desc.appendChild(main);
+      var small = document.createElement("small");
+      small.textContent = h.id + " · lived " + h.lifetimeSec + "s · " + (h.reason==="expired" ? "TTL expired" : "manually destroyed");
+      desc.appendChild(small);
+      li.appendChild(desc);
+      var time = document.createElement("span"); time.className="history-time"; time.textContent = "just now";
+      li.appendChild(time);
+      els.historyList.appendChild(li);
+    });
+  }
+
+  function destroyPlayground(pg, reason){
+    if (pg.status === "destroying" || pg.status === "gone") return;
+    pg.status = "destroying";
+    pg.destroyProgress = 0;
+    pg.destroyReason = reason;
+    addLog("terraform destroy: " + pg.template.name + " (" + pg.id + ") → -7 resources", "warn");
+  }
+
+  function ringColor(fraction){
+    if (fraction > 0.5) return "#34D399";
+    if (fraction > 0.2) return "#FBBF24";
+    return "#F87171";
+  }
+
+  function renderRing(pg){
+    var fraction = pg.remainingMs / (pg.ttlSec*1000);
+    var r = 22, circ = 2*Math.PI*r;
+    var color = ringColor(fraction);
+    return '<svg width="56" height="56" viewBox="0 0 56 56">' +
+      '<circle cx="28" cy="28" r="'+r+'" fill="none" stroke="#0f2c50" stroke-width="5"/>' +
+      '<circle cx="28" cy="28" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="5" ' +
+        'stroke-dasharray="'+circ+'" stroke-dashoffset="'+(circ*(1-fraction))+'" ' +
+        'stroke-linecap="round" transform="rotate(-90 28 28)"/>' +
+      '</svg>';
+  }
+
+  function renderFleet(){
+    els.fleetGrid.innerHTML = "";
+    var visible = state.playgrounds.filter(function(p){ return p.status !== "gone"; });
+    els.fleetCount.textContent = visible.filter(function(p){ return p.status==="active"; }).length + " running";
+    els.activeCountStat.textContent = visible.filter(function(p){ return p.status==="active"; }).length;
+
+    if (visible.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = "No playgrounds running — launch one above.";
+      els.fleetGrid.appendChild(empty);
+      return;
+    }
+
+    visible.forEach(function(pg){
+      var card = document.createElement("div");
+      card.className = "pg-card" + (pg.status==="active" ? " active-card" : "");
+
+      var top = document.createElement("div"); top.className="pg-top";
+      var nameWrap = document.createElement("div");
+      var name = document.createElement("div"); name.className="pg-name"; name.textContent = pg.template.icon + " " + pg.template.name;
+      var id = document.createElement("div"); id.className="pg-id"; id.textContent = pg.id;
+      nameWrap.appendChild(name); nameWrap.appendChild(id);
+      top.appendChild(nameWrap);
+      card.appendChild(top);
+
+      var meta = document.createElement("div"); meta.className="pg-meta";
+      meta.textContent = pg.template.gpu + " · " + pg.template.region;
+      card.appendChild(meta);
+
+      if (pg.status === "provisioning"){
+        var stageText = document.createElement("div");
+        stageText.className = "provision-stage-text";
+        stageText.textContent = PROVISION_STAGES[pg.provisionIdx] + "…";
+        card.appendChild(stageText);
+        var barTrack = document.createElement("div"); barTrack.className="provision-bar-track";
+        var barFill = document.createElement("div"); barFill.className="provision-bar-fill";
+        barFill.style.width = pg.provisionProgress + "%";
+        barTrack.appendChild(barFill);
+        card.appendChild(barTrack);
+      } else if (pg.status === "active"){
+        var ringWrap = document.createElement("div"); ringWrap.className="ring-wrap";
+        ringWrap.innerHTML = renderRing(pg);
+        var ringInfo = document.createElement("div"); ringInfo.className="ring-info";
+        ringInfo.innerHTML = '<div class="ring-time">'+fmtSecs(pg.remainingMs)+'</div><div class="ring-status">remaining</div>';
+        ringWrap.appendChild(ringInfo);
+        card.appendChild(ringWrap);
+
+        var actions = document.createElement("div"); actions.className="pg-actions";
+        var extendBtn = document.createElement("button"); extendBtn.className="pg-btn"; extendBtn.textContent="+30s";
+        extendBtn.addEventListener("click", function(){ pg.remainingMs += 30000; pg.ttlSec += 30; renderFleet(); addLog(pg.id + " lifetime extended by 30s", "info"); });
+        var destroyBtn = document.createElement("button"); destroyBtn.className="pg-btn danger"; destroyBtn.textContent="Destroy";
+        destroyBtn.addEventListener("click", function(){ destroyPlayground(pg, "manual"); });
+        actions.appendChild(extendBtn); actions.appendChild(destroyBtn);
+        card.appendChild(actions);
+      } else if (pg.status === "destroying"){
+        var dText = document.createElement("div"); dText.className="provision-stage-text";
+        dText.style.color = "var(--red)";
+        dText.textContent = "Tearing down…";
+        card.appendChild(dText);
+        var dTrack = document.createElement("div"); dTrack.className="provision-bar-track";
+        var dFill = document.createElement("div"); dFill.className="provision-bar-fill";
+        dFill.style.background = "var(--red)";
+        dFill.style.width = pg.destroyProgress + "%";
+        dTrack.appendChild(dFill);
+        card.appendChild(dTrack);
+      }
+
+      els.fleetGrid.appendChild(card);
+    });
+  }
+
+  function tick(){
+    state.playgrounds.forEach(function(pg){
+      if (pg.status === "provisioning"){
+        pg.provisionProgress += 7 + Math.random()*4;
+        if (pg.provisionProgress >= 100){
+          if (pg.provisionIdx < PROVISION_STAGES.length-1){
+            pg.provisionIdx += 1;
+            pg.provisionProgress = 0;
+            if (pg.provisionIdx === PROVISION_STAGES.length-1) addLog(pg.id + " apply complete: 7 resources created", "ok");
+          } else {
+            pg.status = "active";
+            addLog(pg.id + " is ready — " + pg.template.name, "ok");
+          }
+        }
+      } else if (pg.status === "active"){
+        pg.remainingMs -= TICK_MS;
+        if (pg.remainingMs <= 0){
+          destroyPlayground(pg, "expired");
+        }
+      } else if (pg.status === "destroying"){
+        pg.destroyProgress += 12 + Math.random()*5;
+        if (pg.destroyProgress >= 100){
+          pg.status = "gone";
+          var lifetimeSec = Math.round((Date.now()-pg.launchedAt)/1000);
+          state.savedHours += (pg.ttlSec/3600);
+          els.savedHoursStat.textContent = state.savedHours.toFixed(1);
+          addHistory({ id: pg.id, templateName: pg.template.name, lifetimeSec: lifetimeSec, reason: pg.destroyReason });
+          addLog(pg.id + " destroyed — resources released", "warn");
+        }
+      }
+    });
+    state.playgrounds = state.playgrounds.filter(function(p){ return p.status !== "gone"; });
+    renderFleet();
+  }
+
+  buildTemplateRow();
+  addLog("IaC controller online — ready to provision", "info");
+  launchPlayground("jupyter", 180);
+  renderHistory();
+  renderFleet();
+
+  setInterval(tick, TICK_MS);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math for DevOps — the numbers behind the pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1614;
+    --bg-alt:#0B100F;
+    --panel:#172420;
+    --panel-2:#1D2C27;
+    --line:#25352F;
+    --ink:#E7EDE9;
+    --muted:#8FA39A;
+    --muted-2:#5E7369;
+    --amber:#E8A23D;
+    --teal:#4FD1C5;
+    --coral:#E8735A;
+    --mono: 'JetBrains Mono', monospace;
+    --disp: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    line-height:1.6;
+  }
+  ::selection{background:var(--teal); color:#08110F;}
+
+  a{color:var(--teal);}
+
+  /* ---------- layout shell ---------- */
+  .shell{
+    display:grid;
+    grid-template-columns: 260px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 900px){
+    .shell{grid-template-columns: 1fr;}
+    .sidebar{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+  }
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    border-right:1px solid var(--line);
+    padding:28px 20px;
+    background:var(--bg-alt);
+  }
+  .brand{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--muted);
+    letter-spacing:0.02em;
+    margin-bottom:4px;
+  }
+  .brand b{color:var(--teal); font-weight:600;}
+  .brand-sub{
+    font-family:var(--disp);
+    font-size:19px;
+    font-weight:600;
+    margin:2px 0 26px;
+    line-height:1.25;
+  }
+  nav.toc{display:flex; flex-direction:column; gap:2px;}
+  nav.toc a{
+    display:flex; align-items:baseline; gap:10px;
+    text-decoration:none;
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:6px;
+    transition:background .15s ease, color .15s ease;
+  }
+  nav.toc a:hover{background:var(--panel); color:var(--ink);}
+  nav.toc a .idx{color:var(--muted-2); font-size:12px;}
+  nav.toc a.active{background:var(--panel-2); color:var(--teal);}
+  nav.toc a.active .idx{color:var(--teal);}
+
+  .sidebar-foot{
+    margin-top:28px; padding-top:18px; border-top:1px solid var(--line);
+    font-family:var(--mono); font-size:11.5px; color:var(--muted-2);
+  }
+
+  /* ---------- main ---------- */
+  main{padding: 64px 56px 120px; max-width:920px;}
+  @media (max-width: 900px){ main{padding:40px 22px 100px;} }
+
+  .hero{margin-bottom:84px;}
+  .hero .kicker{
+    font-family:var(--mono); font-size:13px; color:var(--amber);
+    display:flex; align-items:center; gap:10px; margin-bottom:18px;
+  }
+  .hero .kicker::before{
+    content:''; width:8px; height:8px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 0 4px rgba(232,162,61,0.15);
+  }
+  .hero h1{
+    font-family:var(--disp); font-weight:700;
+    font-size:clamp(34px, 5vw, 56px);
+    line-height:1.05; letter-spacing:-0.01em;
+    margin:0 0 20px;
+  }
+  .hero h1 .accent{color:var(--teal);}
+  .hero p.lede{
+    font-size:17px; color:var(--muted); max-width:60ch; margin:0 0 30px;
+  }
+  .hero .badges{display:flex; flex-wrap:wrap; gap:10px;}
+  .badge{
+    font-family:var(--mono); font-size:12px; color:var(--muted);
+    border:1px solid var(--line); padding:6px 12px; border-radius:20px;
+    background:var(--panel);
+  }
+
+  section.topic{
+    padding-top:70px; margin-top:-30px; scroll-margin-top:24px;
+    border-top:1px solid var(--line);
+    padding-bottom:8px;
+  }
+  section.topic:first-of-type{border-top:none;}
+
+  .topic-head{display:flex; align-items:flex-start; gap:16px; margin-bottom:18px;}
+  .topic-num{
+    font-family:var(--mono); font-size:13px; color:var(--muted-2);
+    border:1px solid var(--line); border-radius:6px; padding:4px 9px;
+    white-space:nowrap; margin-top:6px;
+  }
+  .topic-head h2{
+    font-family:var(--disp); font-size:28px; font-weight:600; margin:0;
+    letter-spacing:-0.01em;
+  }
+  .topic-head p.why{
+    color:var(--muted); font-size:14.5px; margin:6px 0 0; max-width:56ch;
+  }
+
+  .topic-body{margin-top:22px; display:flex; flex-direction:column; gap:22px;}
+  .explain p{margin:0 0 12px; font-size:15.5px;}
+  .explain code, code{
+    font-family:var(--mono); background:var(--panel-2); color:var(--teal);
+    padding:2px 6px; border-radius:4px; font-size:0.9em;
+  }
+  .explain ul{margin:8px 0 12px; padding-left:20px;}
+  .explain li{margin-bottom:6px; font-size:15px;}
+
+  /* ---------- terminal-style widget chrome ---------- */
+  .term{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  .term-bar{
+    display:flex; align-items:center; gap:8px;
+    padding:10px 14px; background:var(--panel-2);
+    border-bottom:1px solid var(--line);
+  }
+  .term-dot{width:9px; height:9px; border-radius:50%;}
+  .term-dot.r{background:#E8735A;}
+  .term-dot.y{background:#E8A23D;}
+  .term-dot.g{background:#4FD1C5;}
+  .term-title{
+    font-family:var(--mono); font-size:12px; color:var(--muted); margin-left:6px;
+  }
+  .term-body{padding:20px;}
+
+  label.field-label{
+    display:block; font-family:var(--mono); font-size:12px; color:var(--muted);
+    margin-bottom:6px; text-transform:lowercase;
+  }
+  input[type=text], input[type=number], select, textarea{
+    width:100%; background:var(--bg-alt); border:1px solid var(--line);
+    color:var(--ink); font-family:var(--mono); font-size:14px;
+    padding:9px 11px; border-radius:6px; outline:none;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus{
+    border-color:var(--teal);
+  }
+  .row{display:grid; gap:14px;}
+  .row.cols-2{grid-template-columns:1fr 1fr;}
+  .row.cols-3{grid-template-columns:1fr 1fr 1fr;}
+  @media (max-width:640px){ .row.cols-2, .row.cols-3{grid-template-columns:1fr;} }
+
+  .btn{
+    font-family:var(--mono); font-size:13px; font-weight:600;
+    background:var(--teal); color:#08110F; border:none;
+    padding:10px 18px; border-radius:6px; cursor:pointer;
+    transition:transform .1s ease, background .15s ease;
+  }
+  .btn:hover{background:#6adfd4;}
+  .btn:active{transform:scale(0.98);}
+  .btn.ghost{
+    background:transparent; color:var(--teal); border:1px solid var(--teal);
+  }
+
+  .output{
+    margin-top:16px; font-family:var(--mono); font-size:14px;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:8px;
+    padding:14px 16px; color:var(--ink);
+  }
+  .output .line{display:flex; justify-content:space-between; padding:4px 0; gap:12px;}
+  .output .line .k{color:var(--muted);}
+  .output .line .v{color:var(--teal); font-weight:600; text-align:right;}
+  .output .line .v.amber{color:var(--amber);}
+  .output .line .v.coral{color:var(--coral);}
+
+  /* quick-check quiz */
+  .quiz{
+    border:1px dashed var(--line); border-radius:10px; padding:16px 18px;
+    background:rgba(79,209,197,0.03);
+  }
+  .quiz .q{font-size:14.5px; margin-bottom:10px; font-weight:500;}
+  .quiz .opts{display:flex; flex-wrap:wrap; gap:8px;}
+  .quiz button.opt{
+    font-family:var(--body); font-size:13.5px;
+    background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+    padding:7px 13px; border-radius:6px; cursor:pointer;
+  }
+  .quiz button.opt:hover{border-color:var(--muted);}
+  .quiz button.opt.correct{background:rgba(79,209,197,0.18); border-color:var(--teal); color:var(--teal);}
+  .quiz button.opt.wrong{background:rgba(232,115,90,0.15); border-color:var(--coral); color:var(--coral);}
+  .quiz .feedback{margin-top:10px; font-size:13.5px; color:var(--muted); display:none;}
+  .quiz .feedback.show{display:block;}
+
+  table.ref{width:100%; border-collapse:collapse; font-size:14px;}
+  table.ref th, table.ref td{
+    text-align:left; padding:9px 10px; border-bottom:1px solid var(--line);
+  }
+  table.ref th{color:var(--muted); font-family:var(--mono); font-weight:500; font-size:12.5px;}
+  table.ref td.mono{font-family:var(--mono); color:var(--teal);}
+
+  /* signature: uptime budget */
+  .nines-picker{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;}
+  .nines-picker button{
+    font-family:var(--mono); font-size:13px;
+    background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+    padding:8px 14px; border-radius:20px; cursor:pointer;
+  }
+  .nines-picker button.active{background:var(--teal); color:#08110F; border-color:var(--teal); font-weight:600;}
+  .budget-bar{
+    height:34px; border-radius:6px; background:var(--bg-alt); border:1px solid var(--line);
+    overflow:hidden; position:relative; margin-bottom:10px;
+  }
+  .budget-fill{
+    height:100%; background:linear-gradient(90deg, var(--teal), #2fa79c);
+    transition:width .4s ease; width:99%;
+  }
+  .budget-caption{font-family:var(--mono); font-size:12.5px; color:var(--muted); display:flex; justify-content:space-between;}
+
+  footer.page-foot{
+    margin-top:100px; padding-top:28px; border-top:1px solid var(--line);
+    color:var(--muted-2); font-family:var(--mono); font-size:12.5px;
+  }
+
+  /* utility */
+  .callout{
+    border-left:3px solid var(--amber); background:rgba(232,162,61,0.06);
+    padding:12px 16px; border-radius:0 8px 8px 0; font-size:14.5px; color:var(--ink);
+  }
+  .callout b{color:var(--amber);}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  @media (max-width:760px){ .grid-2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><b>$</b> devops<span style="color:var(--muted-2)">@</span>math</div>
+    <div class="brand-sub">The math your pipeline actually uses</div>
+    <nav class="toc" id="toc">
+      <a href="#binary"><span class="idx">01</span> number systems</a>
+      <a href="#subnetting"><span class="idx">02</span> subnetting &amp; CIDR</a>
+      <a href="#sla"><span class="idx">03</span> uptime &amp; SLA</a>
+      <a href="#storage"><span class="idx">04</span> storage units</a>
+      <a href="#stats"><span class="idx">05</span> monitoring stats</a>
+      <a href="#throughput"><span class="idx">06</span> rate &amp; throughput</a>
+      <a href="#cron"><span class="idx">07</span> cron &amp; time</a>
+    </nav>
+    <div class="sidebar-foot">
+      7 modules · each with a live calculator<br>and a quick self-check.
+    </div>
+  </aside>
+
+  <main>
+    <section class="hero">
+      <div class="kicker">status: all systems learnable</div>
+      <h1>You don't need to<br>be "a math person" to<br><span class="accent">run infrastructure.</span></h1>
+      <p class="lede">DevOps math is narrow and repetitive: a handful of ideas — binary, ratios, percentages, percentiles — show up again and again in subnetting, SLAs, dashboards, and capacity planning. Learn these seven, and nothing in the course will surprise you.</p>
+      <div class="badges">
+        <span class="badge">binary / hex</span>
+        <span class="badge">CIDR</span>
+        <span class="badge">99.9% uptime</span>
+        <span class="badge">GB vs GiB</span>
+        <span class="badge">p95 / p99</span>
+        <span class="badge">req/sec</span>
+        <span class="badge">cron</span>
+      </div>
+    </section>
+
+    <!-- 01 NUMBER SYSTEMS -->
+    <section class="topic" id="binary">
+      <div class="topic-head">
+        <span class="topic-num">01</span>
+        <div>
+          <h2>Number systems: binary, octal, hex</h2>
+          <p class="why">Why it's here: IP addresses, subnet masks, file permissions (chmod 755), color codes, and memory addresses are all just decimal numbers written in a different base.</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>A "base" is just how many digits you get before you carry over. Decimal (base 10) is what you grew up with. Computers prefer <b>binary (base 2)</b> because a transistor is either on or off. Humans reading binary get tired of counting 1s and 0s, so we compress it into <b>hex (base 16)</b> — every 4 binary digits become exactly 1 hex digit.</p>
+          <ul>
+            <li><b>Binary</b> — digits 0–1. Each position is a power of 2 (…32, 16, 8, 4, 2, 1).</li>
+            <li><b>Octal</b> — digits 0–7. Used in Linux file permissions, e.g. <code>chmod 755</code>.</li>
+            <li><b>Hex</b> — digits 0–9 then A–F. Used in MAC addresses, IPv6, color codes, memory dumps.</li>
+          </ul>
+          <div class="callout">Trick for binary→decimal: write the powers of 2 above each bit, then add up the ones where the bit is 1. <code>1011</code> → 8+0+2+1 = <b>11</b>.</div>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">base-converter.sh</span></div>
+          <div class="term-body">
+            <label class="field-label">enter a decimal number</label>
+            <input type="number" id="dec-input" value="203" min="0" max="16777215">
+            <div class="output" id="dec-output"></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="0">
+          <div class="q">Quick check — what does binary <code>1010</code> equal in decimal?</div>
+          <div class="opts">
+            <button class="opt" data-correct="true">10</button>
+            <button class="opt">5</button>
+            <button class="opt">12</button>
+            <button class="opt">9</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 SUBNETTING -->
+    <section class="topic" id="subnetting">
+      <div class="topic-head">
+        <span class="topic-num">02</span>
+        <div>
+          <h2>Subnetting &amp; CIDR notation</h2>
+          <p class="why">Why it's here: every VPC, security group, and Kubernetes cluster network you touch is defined by a CIDR block like <code>10.0.0.0/24</code>. Knowing what the <code>/24</code> means is non-negotiable.</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>An IP address like <code>192.168.1.10</code> is really 32 bits (4 groups of 8, called octets). The <code>/24</code> in <code>192.168.1.0/24</code> says: "the first 24 bits are fixed (the network), the remaining 8 bits are free (the hosts)." Fewer bits reserved for hosts means fewer usable addresses, but more subnets.</p>
+          <ul>
+            <li><b>Prefix (/n)</b> — number of bits locked as "network."</li>
+            <li><b>Usable hosts</b> — 2<sup>(32-n)</sup> − 2 (one address is reserved for the network, one for broadcast).</li>
+            <li><b>/32</b> = a single host. <b>/0</b> = the entire internet.</li>
+          </ul>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">subnet-calc.sh</span></div>
+          <div class="term-body">
+            <div class="row cols-2">
+              <div>
+                <label class="field-label">IP address</label>
+                <input type="text" id="ip-input" value="192.168.1.0">
+              </div>
+              <div>
+                <label class="field-label">prefix length ( /n )</label>
+                <input type="number" id="prefix-input" value="24" min="0" max="32">
+              </div>
+            </div>
+            <div class="output" id="subnet-output" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="0">
+          <div class="q">A <code>/28</code> network has how many usable host addresses?</div>
+          <div class="opts">
+            <button class="opt" data-correct="true">14</button>
+            <button class="opt">16</button>
+            <button class="opt">28</button>
+            <button class="opt">32</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 SLA / UPTIME -->
+    <section class="topic" id="sla">
+      <div class="topic-head">
+        <span class="topic-num">03</span>
+        <div>
+          <h2>Uptime &amp; SLA percentages</h2>
+          <p class="why">Why it's here: "five nines" isn't a slogan, it's a strict downtime budget. SREs and DevOps engineers price incidents against exactly this math.</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>An SLA of <b>99.9%</b> uptime means the system is allowed to be down for <b>0.1%</b> of the time. The trap: 0.1% of a year sounds tiny, but a year is 525,600 minutes — so 0.1% is still <b>~8.8 hours</b>. Each extra "nine" cuts the allowed downtime by roughly 10x.</p>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">sla-budget.sh — the signature calc</span></div>
+          <div class="term-body">
+            <label class="field-label">pick an SLA target</label>
+            <div class="nines-picker" id="nines-picker">
+              <button data-val="99">99%</button>
+              <button data-val="99.9" class="active">99.9%</button>
+              <button data-val="99.95">99.95%</button>
+              <button data-val="99.99">99.99%</button>
+              <button data-val="99.999">99.999%</button>
+            </div>
+            <div class="budget-bar"><div class="budget-fill" id="budget-fill"></div></div>
+            <div class="budget-caption"><span>uptime</span><span id="budget-caption-right">downtime allowed</span></div>
+            <div class="output" id="sla-output" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="0">
+          <div class="q">Roughly how much downtime per year does 99.99% ("four nines") allow?</div>
+          <div class="opts">
+            <button class="opt" data-correct="true">~52 minutes</button>
+            <button class="opt">~8.8 hours</button>
+            <button class="opt">~5 minutes</button>
+            <button class="opt">~1 day</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 STORAGE UNITS -->
+    <section class="topic" id="storage">
+      <div class="topic-head">
+        <span class="topic-num">04</span>
+        <div>
+          <h2>Storage units: bytes to petabytes</h2>
+          <p class="why">Why it's here: provisioning a volume, reading a Prometheus disk-usage graph, or sizing an S3 bucket all depend on converting between units — and on the classic GB vs GiB trap.</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>Storage scales in powers of 1024 (2<sup>10</sup>), not 1000 — because computers count in binary. So technically 1 <b>KiB</b> = 1024 bytes, while 1 <b>KB</b> is sometimes (loosely) used for 1000 bytes. Most tools you'll use (df, du, cloud consoles) mix these conventions, which is exactly why unit math trips people up in practice.</p>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">unit-convert.sh</span></div>
+          <div class="term-body">
+            <div class="row cols-3">
+              <div>
+                <label class="field-label">amount</label>
+                <input type="number" id="storage-amount" value="2.5">
+              </div>
+              <div>
+                <label class="field-label">from</label>
+                <select id="storage-from">
+                  <option value="0">B</option>
+                  <option value="1" selected>KB (×1024)</option>
+                  <option value="2">MB</option>
+                  <option value="3">GB</option>
+                  <option value="4">TB</option>
+                  <option value="5">PB</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">to</label>
+                <select id="storage-to">
+                  <option value="0">B</option>
+                  <option value="1">KB</option>
+                  <option value="2">MB</option>
+                  <option value="3" selected>GB</option>
+                  <option value="4">TB</option>
+                  <option value="5">PB</option>
+                </select>
+              </div>
+            </div>
+            <div class="output" id="storage-output" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="0">
+          <div class="q">How many MB are in 1 GB (binary convention, ×1024)?</div>
+          <div class="opts">
+            <button class="opt" data-correct="true">1024</button>
+            <button class="opt">1000</button>
+            <button class="opt">100</button>
+            <button class="opt">10240</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 STATS FOR MONITORING -->
+    <section class="topic" id="stats">
+      <div class="topic-head">
+        <span class="topic-num">05</span>
+        <div>
+          <h2>Statistics for monitoring: mean, median, percentiles</h2>
+          <p class="why">Why it's here: every latency dashboard talks about "p95" or "p99" response time. That's a percentile — and it tells a very different story than an average.</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>The <b>average (mean)</b> can hide a bad outlier. If 99 requests take 10ms and 1 takes 5000ms, the average looks fine, but that one slow user had a terrible time. A <b>percentile</b> answers: "what value is X% of requests faster than?" <b>p95 = 200ms</b> means 95% of requests finished in 200ms or less — and the worst 5% took longer. DevOps teams watch p95/p99, not the mean, because those tails are where users actually feel pain.</p>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">latency-stats.sh</span></div>
+          <div class="term-body">
+            <label class="field-label">response times in ms, comma-separated</label>
+            <input type="text" id="stats-input" value="12, 15, 14, 13, 500, 16, 12, 11, 14, 18">
+            <div style="margin-top:12px;"><button class="btn" id="stats-btn">calculate</button></div>
+            <div class="output" id="stats-output" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="1">
+          <div class="q">A dashboard shows p99 latency = 900ms while the mean is 40ms. What does that tell you?</div>
+          <div class="opts">
+            <button class="opt">The system is broken for everyone</button>
+            <button class="opt" data-correct="true">Almost all requests are fast, but the slowest 1% are very slow</button>
+            <button class="opt">The mean calculation is wrong</button>
+            <button class="opt">p99 always equals the maximum value</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 THROUGHPUT -->
+    <section class="topic" id="throughput">
+      <div class="topic-head">
+        <span class="topic-num">06</span>
+        <div>
+          <h2>Rate &amp; throughput math</h2>
+          <p class="why">Why it's here: capacity planning, autoscaling thresholds, and load-testing reports all come down to "how many things per second" and "how long is the queue."</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>Throughput is just division: <code>requests ÷ seconds = requests per second (RPS)</code>. To plan capacity, flip it around: if one server handles 200 RPS and you expect 5,000 RPS at peak, you need at least <code>5000 ÷ 200 = 25</code> servers (plus headroom for failures).</p>
+          <p>A related idea, <b>Little's Law</b>, connects queueing: <code>average items in the system = arrival rate × average time in system</code>. If requests arrive at 50/sec and each takes 0.4s to process, on average <b>20 requests</b> are "in flight" at once — that's how many concurrent connections/threads you need to provision for.</p>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">capacity-calc.sh</span></div>
+          <div class="term-body">
+            <div class="row cols-3">
+              <div>
+                <label class="field-label">expected peak load (req/sec)</label>
+                <input type="number" id="tp-peak" value="5000">
+              </div>
+              <div>
+                <label class="field-label">one server handles (req/sec)</label>
+                <input type="number" id="tp-percapacity" value="200">
+              </div>
+              <div>
+                <label class="field-label">avg time per request (sec)</label>
+                <input type="number" id="tp-duration" value="0.4" step="0.1">
+              </div>
+            </div>
+            <div class="output" id="tp-output" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="0">
+          <div class="q">Requests arrive at 100/sec, each takes 0.2s to process. By Little's Law, how many are "in flight" on average?</div>
+          <div class="opts">
+            <button class="opt" data-correct="true">20</button>
+            <button class="opt">100</button>
+            <button class="opt">0.2</button>
+            <button class="opt">500</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 CRON / TIME -->
+    <section class="topic" id="cron">
+      <div class="topic-head">
+        <span class="topic-num">07</span>
+        <div>
+          <h2>Cron expressions &amp; time math</h2>
+          <p class="why">Why it's here: scheduled pipelines, backup jobs, and cert-renewal scripts are all triggered by cron syntax — five fields of modular arithmetic in disguise.</p>
+        </div>
+      </div>
+      <div class="topic-body">
+        <div class="explain">
+          <p>A cron expression has 5 fields, each with its own valid range — this is just modular arithmetic (numbers that wrap around, like a clock):</p>
+        </div>
+
+        <div class="term">
+          <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">reference.txt</span></div>
+          <div class="term-body">
+            <table class="ref">
+              <tr><th>field</th><th>range</th><th>example</th></tr>
+              <tr><td>minute</td><td class="mono">0–59</td><td class="mono">*/15 → every 15 min</td></tr>
+              <tr><td>hour</td><td class="mono">0–23</td><td class="mono">2 → 2am</td></tr>
+              <tr><td>day of month</td><td class="mono">1–31</td><td class="mono">1 → the 1st</td></tr>
+              <tr><td>month</td><td class="mono">1–12</td><td class="mono">*/3 → quarterly</td></tr>
+              <tr><td>day of week</td><td class="mono">0–6 (Sun=0)</td><td class="mono">1-5 → weekdays</td></tr>
+            </table>
+            <div class="callout" style="margin-top:16px;"><code>0 2 * * *</code> reads as: minute 0, hour 2, every day, every month, every weekday → <b>"run at 2:00am, daily."</b></div>
+          </div>
+        </div>
+
+        <div class="quiz" data-answer="2">
+          <div class="q">What does <code>*/15 * * * *</code> mean?</div>
+          <div class="opts">
+            <button class="opt">Once a day at 3pm</button>
+            <button class="opt">Every 15 hours</button>
+            <button class="opt" data-correct="true">Every 15 minutes</button>
+            <button class="opt">15th of every month</button>
+          </div>
+          <div class="feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="page-foot">
+      built for the parts of DevOps where the numbers, not the tools, are the hard part.
+    </footer>
+  </main>
+</div>
+
+<script>
+// ---------- 01 number systems ----------
+function updateBase(){
+  const v = parseInt(document.getElementById('dec-input').value || 0, 10);
+  const safe = isNaN(v) ? 0 : Math.max(0, Math.min(v, 16777215));
+  const out = document.getElementById('dec-output');
+  out.innerHTML = `
+    <div class="line"><span class="k">decimal</span><span class="v">${safe}</span></div>
+    <div class="line"><span class="k">binary</span><span class="v">${safe.toString(2)}</span></div>
+    <div class="line"><span class="k">octal</span><span class="v">${safe.toString(8)}</span></div>
+    <div class="line"><span class="k">hex</span><span class="v">0x${safe.toString(16).toUpperCase()}</span></div>
+  `;
+}
+document.getElementById('dec-input').addEventListener('input', updateBase);
+updateBase();
+
+// ---------- 02 subnetting ----------
+function ipToInt(ip){
+  const parts = ip.split('.').map(p => parseInt(p,10));
+  if(parts.length !== 4 || parts.some(p=>isNaN(p) || p<0 || p>255)) return null;
+  return ((parts[0]<<24) | (parts[1]<<16) | (parts[2]<<8) | parts[3]) >>> 0;
+}
+function intToIp(int){
+  return [(int>>>24)&255, (int>>>16)&255, (int>>>8)&255, int&255].join('.');
+}
+function updateSubnet(){
+  const ipStr = document.getElementById('ip-input').value.trim();
+  const prefix = Math.max(0, Math.min(32, parseInt(document.getElementById('prefix-input').value || 0, 10)));
+  const out = document.getElementById('subnet-output');
+  const ipInt = ipToInt(ipStr);
+  if(ipInt === null){
+    out.innerHTML = `<div class="line"><span class="k">error</span><span class="v coral">enter a valid IPv4 address</span></div>`;
+    return;
+  }
+  const maskInt = prefix === 0 ? 0 : (0xFFFFFFFF << (32-prefix)) >>> 0;
+  const network = (ipInt & maskInt) >>> 0;
+  const broadcast = (network | (~maskInt >>> 0)) >>> 0;
+  const hostBits = 32-prefix;
+  const totalAddrs = Math.pow(2, hostBits);
+  const usable = hostBits <= 1 ? 0 : totalAddrs - 2;
+  out.innerHTML = `
+    <div class="line"><span class="k">network</span><span class="v">${intToIp(network)}/${prefix}</span></div>
+    <div class="line"><span class="k">subnet mask</span><span class="v">${intToIp(maskInt)}</span></div>
+    <div class="line"><span class="k">broadcast</span><span class="v">${intToIp(broadcast)}</span></div>
+    <div class="line"><span class="k">total addresses</span><span class="v amber">${totalAddrs.toLocaleString()}</span></div>
+    <div class="line"><span class="k">usable hosts</span><span class="v">${usable.toLocaleString()}</span></div>
+  `;
+}
+document.getElementById('ip-input').addEventListener('input', updateSubnet);
+document.getElementById('prefix-input').addEventListener('input', updateSubnet);
+updateSubnet();
+
+// ---------- 03 SLA ----------
+const YEAR_MIN = 525600;
+function fmtMinutes(mins){
+  if(mins < 1) return (mins*60).toFixed(1) + ' sec/yr';
+  if(mins < 60) return mins.toFixed(1) + ' min/yr';
+  if(mins < 1440) return (mins/60).toFixed(1) + ' hrs/yr';
+  return (mins/1440).toFixed(1) + ' days/yr';
+}
+function updateSla(pct){
+  const downtimeFraction = (100-pct)/100;
+  const downtimeMinYear = downtimeFraction * YEAR_MIN;
+  const downtimeMinMonth = downtimeFraction * (YEAR_MIN/12);
+  document.getElementById('budget-fill').style.width = pct + '%';
+  document.getElementById('budget-caption-right').textContent = fmtMinutes(downtimeMinYear) + ' allowed downtime';
+  document.getElementById('sla-output').innerHTML = `
+    <div class="line"><span class="k">uptime target</span><span class="v">${pct}%</span></div>
+    <div class="line"><span class="k">downtime / year</span><span class="v amber">${fmtMinutes(downtimeMinYear)}</span></div>
+    <div class="line"><span class="k">downtime / month</span><span class="v amber">${fmtMinutes(downtimeMinMonth)}</span></div>
+  `;
+}
+document.querySelectorAll('#nines-picker button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#nines-picker button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    updateSla(parseFloat(btn.dataset.val));
+  });
+});
+updateSla(99.9);
+
+// ---------- 04 storage ----------
+const UNIT_POWERS = [0,1,2,3,4,5]; // B, KB, MB, GB, TB, PB (x1024^n)
+const UNIT_NAMES = ['B','KB','MB','GB','TB','PB'];
+function updateStorage(){
+  const amount = parseFloat(document.getElementById('storage-amount').value || 0);
+  const fromIdx = parseInt(document.getElementById('storage-from').value,10);
+  const toIdx = parseInt(document.getElementById('storage-to').value,10);
+  const bytes = amount * Math.pow(1024, fromIdx);
+  const result = bytes / Math.pow(1024, toIdx);
+  const out = document.getElementById('storage-output');
+  out.innerHTML = `
+    <div class="line"><span class="k">${amount} ${UNIT_NAMES[fromIdx]}</span><span class="v">= ${result.toLocaleString(undefined,{maximumFractionDigits:6})} ${UNIT_NAMES[toIdx]}</span></div>
+    <div class="line"><span class="k">in raw bytes</span><span class="v amber">${bytes.toLocaleString()} B</span></div>
+  `;
+}
+['storage-amount','storage-from','storage-to'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateStorage);
+  document.getElementById(id).addEventListener('change', updateStorage);
+});
+updateStorage();
+
+// ---------- 05 stats ----------
+function calcStats(){
+  const raw = document.getElementById('stats-input').value;
+  const nums = raw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+  const out = document.getElementById('stats-output');
+  if(nums.length === 0){
+    out.innerHTML = `<div class="line"><span class="k">error</span><span class="v coral">enter comma-separated numbers</span></div>`;
+    return;
+  }
+  const sorted = [...nums].sort((a,b)=>a-b);
+  const mean = nums.reduce((a,b)=>a+b,0)/nums.length;
+  const mid = Math.floor(sorted.length/2);
+  const median = sorted.length % 2 === 0 ? (sorted[mid-1]+sorted[mid])/2 : sorted[mid];
+  function percentile(p){
+    const idx = Math.min(sorted.length-1, Math.ceil((p/100)*sorted.length)-1);
+    return sorted[Math.max(0,idx)];
+  }
+  out.innerHTML = `
+    <div class="line"><span class="k">count</span><span class="v">${nums.length}</span></div>
+    <div class="line"><span class="k">mean (average)</span><span class="v">${mean.toFixed(1)} ms</span></div>
+    <div class="line"><span class="k">median (p50)</span><span class="v">${median.toFixed(1)} ms</span></div>
+    <div class="line"><span class="k">p95</span><span class="v amber">${percentile(95).toFixed(1)} ms</span></div>
+    <div class="line"><span class="k">p99</span><span class="v coral">${percentile(99).toFixed(1)} ms</span></div>
+    <div class="line"><span class="k">max</span><span class="v">${sorted[sorted.length-1].toFixed(1)} ms</span></div>
+  `;
+}
+document.getElementById('stats-btn').addEventListener('click', calcStats);
+document.getElementById('stats-input').addEventListener('keyup', e=>{ if(e.key==='Enter') calcStats(); });
+calcStats();
+
+// ---------- 06 throughput ----------
+function updateThroughput(){
+  const peak = parseFloat(document.getElementById('tp-peak').value || 0);
+  const perServer = parseFloat(document.getElementById('tp-percapacity').value || 1);
+  const duration = parseFloat(document.getElementById('tp-duration').value || 0);
+  const serversNeeded = perServer > 0 ? Math.ceil(peak/perServer) : 0;
+  const inFlight = peak * duration;
+  const out = document.getElementById('tp-output');
+  out.innerHTML = `
+    <div class="line"><span class="k">servers needed at peak</span><span class="v amber">${serversNeeded}</span></div>
+    <div class="line"><span class="k">+20% headroom</span><span class="v">${Math.ceil(serversNeeded*1.2)}</span></div>
+    <div class="line"><span class="k">avg requests "in flight" (Little's Law)</span><span class="v">${inFlight.toLocaleString(undefined,{maximumFractionDigits:1})}</span></div>
+  `;
+}
+['tp-peak','tp-percapacity','tp-duration'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateThroughput);
+});
+updateThroughput();
+
+// ---------- quiz logic ----------
+document.querySelectorAll('.quiz').forEach(quiz=>{
+  const feedback = quiz.querySelector('.feedback');
+  quiz.querySelectorAll('button.opt').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const isCorrect = btn.dataset.correct === 'true';
+      quiz.querySelectorAll('button.opt').forEach(b=>{
+        b.disabled = true;
+        if(b.dataset.correct === 'true') b.classList.add('correct');
+      });
+      if(!isCorrect) btn.classList.add('wrong');
+      feedback.textContent = isCorrect ? '✓ correct.' : '✗ not quite — the right answer is highlighted above.';
+      feedback.classList.add('show');
+    });
+  });
+});
+
+// ---------- scroll spy for sidebar ----------
+const sections = document.querySelectorAll('section.topic');
+const links = document.querySelectorAll('nav.toc a');
+const spy = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const active = document.querySelector(`nav.toc a[href="#${entry.target.id}"]`);
+      if(active) active.classList.add('active');
+    }
+  });
+}, {rootMargin: '-20% 0px -70% 0px'});
+sections.forEach(s=>spy.observe(s));
+</script>
+</body>
+</html>
