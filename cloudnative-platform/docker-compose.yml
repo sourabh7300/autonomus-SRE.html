@@ -1,0 +1,22 @@
+services:
+  api:
+    build: ./api
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+
+  worker:
+    build: ./worker
+    environment:
+      - API_HOST=api
+      - API_PORT=3000
+    depends_on:
+      - api
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api

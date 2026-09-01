@@ -1,0 +1,10 @@
+{
+  "name": "task-worker",
+  "version": "1.0.0",
+  "description": "Background worker that processes pending tasks - part of the CloudNative Platform project",
+  "main": "worker.js",
+  "scripts": {
+    "start": "node worker.js"
+  },
+  "dependencies": {}
+}
