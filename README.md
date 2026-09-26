@@ -1,3 +1,8 @@
+[![LIVE DEMO](https://img.shields.io/badge/▶_LIVE_DEMO-verified_working-00d4aa?style=for-the-badge&logo=vercel&logoColor=white)](https://sourabh7300.github.io/autonomus-SRE.html/)
+
+**🛡️ Autonomous SRE Lab — 15+ live apps** — ✅ verified live (2026-09-26): returns HTTP 200, fully functional.
+
+---
 # 🧪 The Lab — monorepo of single-file apps
 
 > One repo, a whole portfolio of experiments: SRE, DevOps, AI assistants and utility tools — each a self-contained HTML app.
