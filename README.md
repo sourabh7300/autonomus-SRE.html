@@ -13,7 +13,7 @@
 - **autonomous-sre.html** — multi-agent incident responder: detection → triage → remediation, visualized
 - **cloudpilot.html** — CloudPilot: infrastructure that ships itself (IaC console)
 - **kin_copilot_standalone.html** — Kin, the copilot that remembers (bring your own key)
-- **jarvis_1.html** — J.A.R.V.I.S Mark VII dev console & AI neural link
+- **zeus_1.html** — Z.E.U.S Mark VII dev console & AI neural link
 - **voice_assistant.html** — Echo: ask anything, answers out loud
 - **devops-math.html** — the numbers behind the pipeline
 - **task-tracker-web.html** — CloudNative task tracker

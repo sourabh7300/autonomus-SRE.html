@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S — Mark VII Dev Console &amp; AI Neural Link</title>
+<title>Z.E.U.S — Mark VII Dev Console &amp; AI Neural Link</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -389,7 +389,7 @@
     align-items: center;
     gap: 5px;
   }
-  .who-jarvis{
+  .who-zeus{
     color: var(--cyan);
     font-weight: 700;
     display: flex;
@@ -747,7 +747,7 @@
     <div class="brand">
       <div class="brand-logo-ring"></div>
       <div>
-        <div class="brand-text">J.A.R.V.I.S</div>
+        <div class="brand-text">Z.E.U.S</div>
         <div class="brand-sub">
           <span>MARK VII DEV CONSOLE</span>
           <span class="active-model-tag" id="currentModelBadge">CLAUDE 3.7</span>
@@ -807,7 +807,7 @@
     <div class="log" id="log">
       <div class="entry">
         <div class="entry-head">
-          <span class="who-jarvis">⚡ J.A.R.V.I.S</span>
+          <span class="who-zeus">⚡ Z.E.U.S</span>
           <span class="timestamp">BOOT SEQUENCE</span>
         </div>
         <div class="entry-body">
@@ -823,7 +823,7 @@
   <!-- INPUT BAR -->
   <div class="inputbar">
     <button class="iconbtn mic" id="micBtn" title="Voice Input" aria-label="Voice input">&#127908;</button>
-    <input type="text" id="textInput" placeholder="Command JARVIS or paste code..." autocomplete="off">
+    <input type="text" id="textInput" placeholder="Command ZEUS or paste code..." autocomplete="off">
     <button class="iconbtn send" id="sendBtn" title="Transmit" aria-label="Send">&#9658;</button>
     <button class="iconbtn" id="muteBtn" title="Toggle Voice Output" aria-label="Toggle voice output">&#128264;</button>
   </div>
@@ -838,7 +838,7 @@
 <div class="modal-backdrop" id="settingsModal">
   <div class="modal-window">
     <div class="modal-header">
-      <div class="modal-title"><span>⚡</span> J.A.R.V.I.S NEURAL CONFIGURATION</div>
+      <div class="modal-title"><span>⚡</span> Z.E.U.S NEURAL CONFIGURATION</div>
       <button class="modal-close" id="closeSettingsBtn">&times;</button>
     </div>
 
@@ -859,9 +859,9 @@
             <option value="openai">OpenAI (GPT-4o / GPT-4o-mini / o3-mini)</option>
             <option value="groq">Groq (Ultra-fast Llama 3.3 70B / Mixtral)</option>
             <option value="custom">Custom / Ollama / OpenRouter (OpenAI-compatible)</option>
-            <option value="demo">JARVIS Built-in Simulated Intelligence (No Key Needed)</option>
+            <option value="demo">ZEUS Built-in Simulated Intelligence (No Key Needed)</option>
           </select>
-          <div class="form-hint">Choose which LLM neural backend powers JARVIS responses.</div>
+          <div class="form-hint">Choose which LLM neural backend powers ZEUS responses.</div>
         </div>
 
         <div class="form-group" id="apiKeyGroup">
@@ -901,7 +901,7 @@
           <div class="form-group">
             <label class="form-label" for="voiceSelect">System Voice</label>
             <select id="voiceSelect"></select>
-            <div class="form-hint">Tip: Voices like 'Daniel', 'Google UK English Male', or 'David' sound closest to Paul Bettany's JARVIS.</div>
+            <div class="form-hint">Tip: Voices like 'Daniel', 'Google UK English Male', or 'David' sound closest to Paul Bettany's ZEUS.</div>
           </div>
           <div style="display:flex; gap:16px;">
             <div class="form-group" style="flex:1;">
@@ -924,7 +924,7 @@
           <div class="form-group">
             <label class="form-label" for="elVoiceIdInput">ElevenLabs Voice ID</label>
             <input type="text" id="elVoiceIdInput" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM">
-            <div class="form-hint">Voice ID of your cloned JARVIS voice model.</div>
+            <div class="form-hint">Voice ID of your cloned ZEUS voice model.</div>
           </div>
         </div>
 
@@ -944,9 +944,9 @@
         </div>
 
         <div class="form-group" id="systemPromptGroup">
-          <label class="form-label" for="systemPromptInput">JARVIS Core System Prompt</label>
+          <label class="form-label" for="systemPromptInput">ZEUS Core System Prompt</label>
           <textarea id="systemPromptInput" rows="5"></textarea>
-          <div class="form-hint">Defines JARVIS persona, code guidelines, and behavior.</div>
+          <div class="form-hint">Defines ZEUS persona, code guidelines, and behavior.</div>
         </div>
       </div>
     </div>
@@ -977,7 +977,7 @@
   "use strict";
 
   // ---- Default Settings ----
-  const DEFAULT_SYSTEM_PROMPT = "You are J.A.R.V.I.S, Tony Stark's sophisticated AI assistant, serving as an elite dev & software engineering neural link. You are precise, calm, dryly witty, respectful (refer to the user politely), and masterfully skilled at writing, debugging, explaining code, and architecting robust systems. Keep responses spoken-friendly yet thorough when technical depth or code is required. Use markdown code fences with explicit language names.";
+  const DEFAULT_SYSTEM_PROMPT = "You are Z.E.U.S, Tony Stark's sophisticated AI assistant, serving as an elite dev & software engineering neural link. You are precise, calm, dryly witty, respectful (refer to the user politely), and masterfully skilled at writing, debugging, explaining code, and architecting robust systems. Keep responses spoken-friendly yet thorough when technical depth or code is required. Use markdown code fences with explicit language names.";
 
   const MODEL_PRESETS = {
     anthropic: "claude-3-7-sonnet-20250219",
@@ -985,10 +985,10 @@
     openai: "gpt-4o",
     groq: "llama-3.3-70b-versatile",
     custom: "gpt-4o",
-    demo: "jarvis-simulated-core"
+    demo: "zeus-simulated-core"
   };
 
-  const STORAGE_KEY = "jarvis_neural_config_v2";
+  const STORAGE_KEY = "zeus_neural_config_v2";
 
   let config = {
     provider: "anthropic",
@@ -1261,7 +1261,7 @@
 
     entry.innerHTML = `
       <div class="entry-head">
-        <span class="${isUser ? 'who-user' : 'who-jarvis'}">${isUser ? '👤 YOU' : '⚡ J.A.R.V.I.S'}</span>
+        <span class="${isUser ? 'who-user' : 'who-zeus'}">${isUser ? '👤 YOU' : '⚡ Z.E.U.S'}</span>
         <span class="timestamp">${time}</span>
       </div>
       <div class="entry-body ${isError ? 'err-text' : ''}">
@@ -1448,7 +1448,7 @@
     }
   }
 
-  // ---- Simulated JARVIS Neural Intelligence (Offline / Keyless Fallback) ----
+  // ---- Simulated ZEUS Neural Intelligence (Offline / Keyless Fallback) ----
   function generateSimulatedResponse(prompt){
     const p = prompt.toLowerCase();
     if(p.includes('diagnostic') || p.includes('status')){
@@ -1576,7 +1576,7 @@
   }
 
   // ---- Main Transmission Pipeline ----
-  async function sendToJarvis(userText){
+  async function sendToZeus(userText){
     if(!userText || !userText.trim()) return;
     stopAllSpeech();
     sfx.click();
@@ -1593,15 +1593,15 @@
       const reply = await callNeuralAPI(userText);
       history.push({ role: 'assistant', content: reply });
 
-      addEntry('JARVIS', reply);
+      addEntry('ZEUS', reply);
       setStatus('online', 'SYSTEMS NOMINAL');
       setCore('', '');
       speakText(reply);
       sfx.chime();
     } catch(err){
-      console.error('JARVIS Error:', err);
+      console.error('ZEUS Error:', err);
       sfx.error();
-      addEntry('JARVIS', 'I encountered an operational error: ' + err.message + '\n\n*Tip: Check your API key and model selection in `NEURAL CONFIG`.*', true);
+      addEntry('ZEUS', 'I encountered an operational error: ' + err.message + '\n\n*Tip: Check your API key and model selection in `NEURAL CONFIG`.*', true);
       setStatus('error', 'NEURAL LINK FAULT');
       setCore('error', 'FAULT DETECTED');
       setTimeout(() => { setCore('', ''); setStatus('online', 'SYSTEMS NOMINAL'); }, 3000);
@@ -1611,9 +1611,9 @@
     }
   }
 
-  sendBtn.addEventListener('click', () => sendToJarvis(textInput.value));
+  sendBtn.addEventListener('click', () => sendToZeus(textInput.value));
   textInput.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter') sendToJarvis(textInput.value);
+    if(e.key === 'Enter') sendToZeus(textInput.value);
   });
 
   // Mute button
@@ -1632,16 +1632,16 @@
       alert("Transcript buffer is currently empty.");
       return;
     }
-    let md = "# J.A.R.V.I.S Session Transcript\n\n";
+    let md = "# Z.E.U.S Session Transcript\n\n";
     md += `*Export Date: ${new Date().toLocaleString()}*\n\n---\n\n`;
     history.forEach(m => {
-      md += `### ${m.role === 'user' ? '👤 User' : '⚡ JARVIS'}\n\n${m.content}\n\n`;
+      md += `### ${m.role === 'user' ? '👤 User' : '⚡ ZEUS'}\n\n${m.content}\n\n`;
     });
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `jarvis_session_${Date.now()}.md`;
+    a.download = `zeus_session_${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   });
@@ -1652,7 +1652,7 @@
     if(confirm("Reboot systems and clear conversation history?")){
       history = [];
       log.innerHTML = '';
-      addEntry('JARVIS', 'Systems rebooted. Neural memory buffer flushed. Ready for instructions.');
+      addEntry('ZEUS', 'Systems rebooted. Neural memory buffer flushed. Ready for instructions.');
       sfx.chime();
     }
   });
@@ -1725,7 +1725,7 @@
       };
       const msg = errorMessages[e.error];
       if(msg && e.error !== 'no-speech'){
-        addEntry('JARVIS', msg, true);
+        addEntry('ZEUS', msg, true);
       }
       setCore('error', 'MIC ERROR');
       setTimeout(() => { setCore('', ''); }, 2000);
@@ -1735,7 +1735,7 @@
       const interim = Array.from(e.results).map(r => r[0].transcript).join('');
       if(e.results[e.results.length - 1].isFinal){
         liveStrip.textContent = '';
-        sendToJarvis(interim);
+        sendToZeus(interim);
       } else {
         liveStrip.textContent = `"${interim}"`;
       }
@@ -1752,7 +1752,7 @@
         setCore('thinking', 'REQUESTING MIC');
         const granted = await requestMicPermission();
         if(!granted){
-          addEntry('JARVIS', 'Microphone access was denied. Please allow microphone access in your browser settings.', true);
+          addEntry('ZEUS', 'Microphone access was denied. Please allow microphone access in your browser settings.', true);
           setCore('error', 'MIC DENIED');
           setTimeout(() => { setCore('', ''); }, 2000);
           return;
@@ -1897,7 +1897,7 @@
     updateModelBadge();
     settingsModal.classList.remove('open');
     sfx.chime();
-    addEntry('JARVIS', `Neural Link updated: Provider set to **${config.provider.toUpperCase()}** with model \`${config.model}\`.`);
+    addEntry('ZEUS', `Neural Link updated: Provider set to **${config.provider.toUpperCase()}** with model \`${config.model}\`.`);
   });
 
   resetDefaultsBtn.addEventListener('click', () => {
